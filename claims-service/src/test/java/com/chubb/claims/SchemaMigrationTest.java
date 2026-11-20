@@ -62,7 +62,6 @@ class SchemaMigrationTest {
         claim.setClaimantId(claimant.getId());
         claim.setMarketCode("MY");
         claim.setClaimType(ClaimType.MOTOR);
-        claim.setStatus(ClaimStatus.SUBMITTED);
         claim.setIncidentDate(LocalDate.of(2026, 11, 1));
         claim.setDescription("Rear-ended at traffic light");
         claim.setIncidentDetails(Map.of("vehiclePlate", "WXY1234", "thirdPartyInvolved", true));
@@ -88,7 +87,6 @@ class SchemaMigrationTest {
         claim.setClaimantId(claimant.getId());
         claim.setMarketCode("SG");
         claim.setClaimType(ClaimType.MOTOR);
-        claim.setStatus(ClaimStatus.SUBMITTED);
         claim.setIncidentDate(LocalDate.of(2026, 11, 2));
         claim.setDescription("x");
         claim.setCurrency("SGD");

@@ -1,6 +1,7 @@
 package com.chubb.claims.domain;
 
 import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -17,7 +18,7 @@ import java.util.UUID;
 /**
  * Claim aggregate root. Related aggregates are referenced by ID (ADR-004).
  * {@code version} gives optimistic locking so two officers cannot pick up the same claim.
- * State-transition behaviour is added in Phase 2.
+ * Status can only change through {@link #transitionTo(ClaimStatus)}, which enforces the lifecycle.
  */
 @Entity
 @Table(name = "claims")
@@ -43,9 +44,10 @@ public class Claim {
     @Column(name = "claim_type", nullable = false, length = 20)
     private ClaimType claimType;
 
+    @Setter(AccessLevel.NONE)
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    private ClaimStatus status;
+    private ClaimStatus status = ClaimStatus.SUBMITTED;
 
     @Column(name = "incident_date", nullable = false)
     private LocalDate incidentDate;
@@ -85,6 +87,23 @@ public class Claim {
 
     @Version
     private long version;
+
+    /** The only way to change status. Throws rather than silently allowing an invalid move. */
+    public void transitionTo(ClaimStatus target) {
+        if (!status.canTransitionTo(target)) {
+            throw new IllegalClaimTransitionException(reference, status, target);
+        }
+        this.status = target;
+        this.closedAt = target.isTerminal() ? Instant.now() : null;
+    }
+
+    public boolean canTransitionTo(ClaimStatus target) {
+        return status.canTransitionTo(target);
+    }
+
+    public boolean isTerminal() {
+        return status.isTerminal();
+    }
 
     @PrePersist
     void onCreate() {
