@@ -8,3 +8,4 @@ dist/
 *.log
 uploads/
 .env
+docs/HANDOFF.md
