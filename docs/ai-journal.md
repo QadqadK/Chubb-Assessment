@@ -105,3 +105,29 @@ Entries marked `TODO(you)` need your own verdict before submission: the panel wi
   - Dev database now has two submitted claims for queue demos (`CLM-MY-000001`, `CLM-MY-000002`) and one settled
     claim (`CLM-MY-000003`).
 - **Accepted / Challenged:** TODO(you).
+
+## 7. Phase 5: transactional outbox and Kafka
+- **Asked:** Implement Phase 5: write events with each transition and publish them to Kafka without the
+  dual-write problem.
+- **AI produced:** Spring Kafka producer config, seven topics (3 partitions, replication factor 1 for the local
+  single broker), a versioned `ClaimEventEnvelope`, and a `ClaimEventRecorder` that writes the timeline plus an
+  outbox row in the same transaction. A scheduled `OutboxPublisher` batches unpublished rows, sends them keyed
+  by claim id, waits for the broker ack and then marks them published.
+- **Decisions worth defending:**
+  - One topic per event type, rather than one `claims.events` topic. More explicit subscriptions; the envelope
+    still carries `eventType` and `schemaVersion`.
+  - At-least-once, not exactly-once. A crash between send and mark produces a duplicate, so consumers should
+    dedupe on `eventId`. This is cheaper than Kafka transactions and matches the read-model use case.
+  - The publisher stops a batch at the first failure. Continuing would let a later event for the same claim
+    overtake an earlier unpublished one.
+  - The outbox is written even when Kafka is down; the poller retries. The API therefore never waits on Kafka.
+  - Document uploads stay timeline-only: no consumer reacts to them and they do not change exposure.
+- **Test setup decision:** the integration tests disable the publisher and topic admin so they stay independent
+  of a running broker. The outbox tests assert the row payload, and the officer happy path asserts all seven
+  event types in order with no `publishedAt`.
+- **Verified:**
+  - `mvn test` — 77 tests, 0 failures (56 state-machine, 10 claimant API, 6 officer workflow, 3 schema, 2 security).
+  - Live on :8080 with the docker-compose broker: all seven topics existed; a full workflow produced 8 outbox rows
+    (two submissions plus one of each transition), all with `unpublished = 0`; consuming each topic showed the
+    claim id as key and correct from/to status, amounts, actor and event-specific `data`.
+- **Accepted / Challenged:** TODO(you).

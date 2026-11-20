@@ -78,6 +78,32 @@ Assignment is an atomic pickup: the claim's `@Version` means two officers cannot
 request responses share one shape for claimant and officer views, including `claimId`, `requestedBy` and
 status. An approved decision defaults the settlement amount to the latest assessment when none is supplied.
 
+## Events and outbox (Phase 5)
+
+Every state change writes a versioned event to `outbox_events` in the same PostgreSQL transaction as the claim
+update. A scheduled poller publishes unpublished rows to Kafka, keyed by claim id, then marks them published.
+If Kafka is down the rows stay unpublished and are retried; per-claim ordering is preserved by stopping a batch
+at the first failure. The result is at-least-once delivery, so consumers must deduplicate on `eventId`.
+
+| Event type | Kafka topic |
+|---|---|
+| CLAIM_SUBMITTED | `claim.submitted` |
+| CLAIM_ASSIGNED | `claim.assigned` |
+| INFO_REQUESTED | `claim.info-requested` |
+| INFO_PROVIDED | `claim.info-provided` |
+| CLAIM_ASSESSED | `claim.assessed` |
+| CLAIM_DECIDED | `claim.decided` |
+| CLAIM_SETTLED | `claim.settled` |
+
+The envelope carries `eventId`, `eventType`, `schemaVersion`, `occurredAt`, claim snapshot fields, from/to
+status, actor and an event-specific `data` map. Configure the broker with `KAFKA_BOOTSTRAP_SERVERS`
+(default `localhost:9092`). Inspect a topic with:
+
+```bash
+docker exec chubb-kafka /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 --topic claim.decided --from-beginning
+```
+
 ## Structure
 
 - `claims-service/` core domain: claims, workflow, REST API, event publishing
@@ -92,6 +118,6 @@ status. An approved decision defaults the settlement amount to the latest assess
 - [x] Phase 2: claim state machine
 - [x] Phase 3: auth and claimant APIs
 - [x] Phase 4: officer queue and workflow
-- [ ] Phase 5: outbox and Kafka
+- [x] Phase 5: transactional outbox and Kafka
 - [ ] Phase 6: insights service
 - [ ] Phase 7+: integration tests, docs, Angular

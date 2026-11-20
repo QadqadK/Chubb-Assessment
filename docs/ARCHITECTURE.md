@@ -65,3 +65,24 @@ calling officer to be the assignee; viewing a same-market claim is allowed befor
 Recording an assessment copies the assessed amount into `reserveAmount`, so exposure is the sum of reserves on
 open claims. An approval defaults its settlement amount to the latest assessment when the officer does not supply
 one; a rejection has no settlement amount. Settlement closes the claim.
+
+## ADR-016: Transactional outbox, one topic per event type
+The claim update and the `outbox_events` insert share one transaction, so there is no dual-write window. A poller
+publishes to seven event topics (`claim.submitted`, `claim.assigned`, `claim.info-requested`,
+`claim.info-provided`, `claim.assessed`, `claim.decided`, `claim.settled`). One topic per event type keeps
+subscriptions explicit; a single `claims.events` topic with an event-type header was the alternative.
+
+## ADR-017: At-least-once delivery with per-claim ordering
+The poller waits for the broker acknowledgement before marking a row published and stops a batch at the first
+failure, so later events for the same claim cannot overtake an earlier one. A crash between publish and mark
+re-sends the event; consumers must deduplicate on `eventId`. The Kafka message key is the claim id, which also
+pins a claim's events to one partition.
+
+## ADR-018: Versioned event envelope
+Each payload has `eventId`, `eventType`, `schemaVersion: 1`, `occurredAt`, a claim snapshot (reference, market,
+type, status, currency, claimed/reserve amounts, assignee) and an event-specific `data` map. Consumers can build
+read models without calling back, and the version field gives a migration path.
+
+## ADR-019: Document uploads are timeline-only
+A document upload records a claim event but has no Kafka topic, because no other component reacts to it and
+insights does not need it for workload or exposure.
