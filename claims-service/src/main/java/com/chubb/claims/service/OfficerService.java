@@ -127,7 +127,8 @@ public class OfficerService {
         claim.transitionTo(ClaimStatus.UNDER_REVIEW);
         recorder.record(claim, ClaimEventTypes.CLAIM_ASSIGNED,
                 ClaimStatus.SUBMITTED, ClaimStatus.UNDER_REVIEW, officer.id(), null,
-                Map.of("assignedOfficerId", officer.id()));
+                Map.of("assignedOfficerId", officer.id(),
+                        "assignedOfficerName", officer.fullName()));
         claims.saveAndFlush(claim);
         return toView(claim);
     }
@@ -154,7 +155,10 @@ public class OfficerService {
         }
         recorder.record(claim, ClaimEventTypes.INFO_REQUESTED,
                 before, claim.getStatus(), officer.id(), null,
-                Map.of("infoRequestId", infoRequest.getId(), "question", request.question()));
+                Map.of("infoRequestId", infoRequest.getId(),
+                        "question", request.question(),
+                        "requestedByName", officer.fullName(),
+                        "assignedOfficerName", officer.fullName()));
         return mapper.toInfoRequest(infoRequest);
     }
 
@@ -180,7 +184,9 @@ public class OfficerService {
                 ClaimStatus.UNDER_REVIEW, ClaimStatus.ASSESSED, officer.id(), null,
                 Map.of("assessmentId", assessment.getId(),
                         "assessedAmount", request.assessedAmount(),
-                        "notes", request.notes()));
+                        "notes", request.notes(),
+                        "officerName", officer.fullName(),
+                        "assignedOfficerName", officer.fullName()));
         return mapper.toAssessment(assessment);
     }
 
@@ -219,6 +225,8 @@ public class OfficerService {
         eventData.put("decisionId", decision.getId());
         eventData.put("outcome", request.outcome().name());
         eventData.put("reason", request.reason());
+        eventData.put("officerName", officer.fullName());
+        eventData.put("assignedOfficerName", officer.fullName());
         if (settlementAmount != null) {
             eventData.put("settlementAmount", settlementAmount);
         }
@@ -236,7 +244,9 @@ public class OfficerService {
 
         claim.transitionTo(ClaimStatus.SETTLED);
         recorder.record(claim, ClaimEventTypes.CLAIM_SETTLED,
-                ClaimStatus.APPROVED, ClaimStatus.SETTLED, officer.id(), null);
+                ClaimStatus.APPROVED, ClaimStatus.SETTLED, officer.id(), null,
+                Map.of("officerName", officer.fullName(),
+                        "assignedOfficerName", officer.fullName()));
         return mapper.toSummary(claim);
     }
 

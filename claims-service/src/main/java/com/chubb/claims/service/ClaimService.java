@@ -86,7 +86,9 @@ public class ClaimService {
 
         Claim saved = claims.save(claim);
         recorder.record(saved, ClaimEventTypes.CLAIM_SUBMITTED, null, ClaimStatus.SUBMITTED, claimantId, null,
-                Map.of("policyId", policy.getId(), "incidentDate", request.incidentDate()));
+                Map.of("policyId", policy.getId(),
+                        "incidentDate", request.incidentDate(),
+                        "claimantName", claimant.getFullName()));
         return mapper.toSummary(saved);
     }
 
