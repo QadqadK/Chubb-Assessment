@@ -1,0 +1,121 @@
+:host {
+  display: block;
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--chubb-teal);
+  margin-bottom: 0.2rem;
+}
+
+.page-header h1 {
+  font-size: 1.85rem;
+}
+
+.market-select {
+  min-width: 170px;
+}
+
+.error-card {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.error-card > i {
+  color: var(--chubb-red);
+  font-size: 1.4rem;
+}
+
+.error-card > div {
+  flex: 1;
+}
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.chart-wide {
+  grid-column: 1 / -1;
+}
+
+.attention-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.attention-card .section-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.attention-icon.warn {
+  color: var(--chubb-amber);
+}
+
+.attention-icon.danger {
+  color: var(--chubb-red);
+}
+
+.attention-icon.teal {
+  color: var(--chubb-teal);
+}
+
+.attention-amount {
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--chubb-navy);
+  white-space: nowrap;
+}
+
+:host ::ng-deep .manager-table .p-datatable-thead > tr > th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-color: var(--app-border);
+  white-space: nowrap;
+}
+
+:host ::ng-deep .manager-table .p-datatable-tbody > tr > td {
+  border-color: var(--app-border);
+  font-size: 0.82rem;
+}
+
+.market-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.hot {
+  color: var(--chubb-red);
+  font-weight: 700;
+}
+
+@media (max-width: 1000px) {
+  .chart-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .header-actions {
+    width: 100%;
+  }
+
+  .market-select {
+    flex: 1;
+  }
+}

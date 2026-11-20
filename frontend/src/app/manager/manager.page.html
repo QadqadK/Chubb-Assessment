@@ -1,0 +1,270 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <span class="eyebrow">Portfolio intelligence</span>
+      <h1>Where should attention go?</h1>
+      <p class="subtitle">
+        Exposure, backlog, officer load and customer signals across the claims portfolio.
+      </p>
+    </div>
+    <div class="header-actions">
+      <p-select
+        [ngModel]="market()"
+        (ngModelChange)="onMarketChange($event)"
+        [options]="markets"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="All markets"
+        styleClass="market-select"
+      ></p-select>
+      <p-button
+        icon="pi pi-refresh"
+        label="Refresh"
+        [outlined]="true"
+        severity="secondary"
+        (onClick)="load()"
+      ></p-button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="surface section error-card">
+      <i class="pi pi-exclamation-triangle"></i>
+      <div>
+        <strong>Dashboard unavailable</strong>
+        <p class="muted">{{ error() }}</p>
+      </div>
+      <p-button label="Retry" icon="pi pi-refresh" [text]="true" (onClick)="load()"></p-button>
+    </div>
+  }
+
+  @if (dashboard(); as data) {
+    <section class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-icon"><i class="pi pi-inbox"></i></div>
+        <div class="stat-body">
+          <span class="stat-label">Open claims</span>
+          <span class="stat-value">{{ data.portfolio.openClaims }}</span>
+          <span class="stat-note">{{ data.portfolio.unassignedClaims }} unassigned</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon teal"><i class="pi pi-wallet"></i></div>
+        <div class="stat-body">
+          <span class="stat-label">Open reserve</span>
+          <span class="stat-value small">{{ currencySummary(data.portfolio.openReserveByCurrency) }}</span>
+          <span class="stat-note">liability exposure by currency</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon warn"><i class="pi pi-exclamation-circle"></i></div>
+        <div class="stat-body">
+          <span class="stat-label">Needs attention</span>
+          <span class="stat-value">{{ data.portfolio.awaitingInformation }}</span>
+          <span class="stat-note">
+            awaiting info · {{ data.portfolio.approvedNotSettled }} approved not settled
+          </span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon success"><i class="pi pi-chart-line"></i></div>
+        <div class="stat-body">
+          <span class="stat-label">Last 7 days</span>
+          <span class="stat-value">{{ data.portfolio.submittedLast7Days }}</span>
+          <span class="stat-note">
+            submitted · {{ data.portfolio.decidedLast7Days }} decided ·
+            {{ data.portfolio.settledLast7Days }} settled
+          </span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon"><i class="pi pi-clock"></i></div>
+        <div class="stat-body">
+          <span class="stat-label">Cycle time</span>
+          <span class="stat-value">
+            {{ data.portfolio.averageCycleTimeDays === null ? '—' : data.portfolio.averageCycleTimeDays }}
+            <small>days</small>
+          </span>
+          <span class="stat-note">submitted to settled</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon teal"><i class="pi pi-percentage"></i></div>
+        <div class="stat-body">
+          <span class="stat-label">Settled vs claimed</span>
+          <span class="stat-value small">{{ ratioSummary() }}</span>
+          <span class="stat-note">approval rate {{ data.portfolio.approvalRatePct ?? '—' }}%</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="chart-grid">
+      <section class="surface section">
+        <div class="section-head">
+          <h2>Open claims by status</h2>
+          <span class="hint">Work waiting at each stage</span>
+        </div>
+        <div class="chart-body">
+          <p-chart type="doughnut" [data]="statusChart()" [options]="doughnutOptions"></p-chart>
+        </div>
+      </section>
+
+      <section class="surface section">
+        <div class="section-head">
+          <h2>Reserve exposure by market</h2>
+          <span class="hint">Open reserve, per currency</span>
+        </div>
+        <div class="chart-body">
+          <p-chart type="bar" [data]="reserveChart()" [options]="barOptions"></p-chart>
+        </div>
+      </section>
+
+      <section class="surface section chart-wide">
+        <div class="section-head">
+          <h2>Officer workload</h2>
+          <span class="hint">Where people are carrying the most open claims</span>
+        </div>
+        <div class="chart-body">
+          <p-chart type="bar" [data]="officerChart()" [options]="stackedBarOptions"></p-chart>
+        </div>
+      </section>
+
+      <section class="surface section">
+        <div class="section-head">
+          <h2>Open claims by type</h2>
+          <span class="hint">Motor vs property mix</span>
+        </div>
+        <div class="chart-body small">
+          <p-chart type="doughnut" [data]="typeChart()" [options]="doughnutOptions"></p-chart>
+        </div>
+      </section>
+
+      <section class="surface section">
+        <div class="section-head">
+          <h2>Settlement ratio</h2>
+          <span class="hint">Settled amount as % of claimed</span>
+        </div>
+        <div class="chart-body small">
+          <p-chart type="bar" [data]="ratioChart()" [options]="percentBarOptions"></p-chart>
+        </div>
+      </section>
+    </div>
+
+    <div class="attention-grid">
+      @for (block of attentionBlocks(); track block.title) {
+        <section class="surface section attention-card">
+          <div class="section-head">
+            <h2><i [class]="block.icon + ' attention-icon ' + block.tone"></i> {{ block.title }}</h2>
+            <span class="pill">{{ block.items.length }}</span>
+          </div>
+          @if (block.items.length === 0) {
+            <div class="empty-state">Nothing needs attention.</div>
+          } @else {
+            @for (claim of block.items; track claim.claimId) {
+              <div class="attention-row">
+                <div class="attention-main">
+                  <span class="ref">{{ claim.reference }}</span>
+                  <span class="meta">
+                    {{ claim.marketCode }} · {{ claimTypeLabel(claim.claimType) }} ·
+                    {{ ageLabel(claim.ageDays) }}
+                  </span>
+                </div>
+                <div class="attention-amount">{{ attentionAmount(claim) }}</div>
+              </div>
+            }
+          }
+        </section>
+      }
+    </div>
+
+    <section class="surface section">
+      <div class="section-head">
+        <h2>Market performance</h2>
+        <span class="hint">Generated {{ dateTime(data.generatedAt) }}</span>
+      </div>
+      <p-table [value]="data.byMarket" [tableStyleClass]="'manager-table'">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Market</th>
+            <th>Open</th>
+            <th>Unassigned</th>
+            <th>Aging &gt; 7d</th>
+            <th>Open reserve</th>
+            <th>Submitted 7d</th>
+            <th>Decided 7d</th>
+            <th>Settled 7d</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-market>
+          <tr>
+            <td>
+              <span class="market-cell">
+                <span class="strong">{{ market.marketName }}</span>
+                <span class="muted tiny">{{ market.marketCode }} market</span>
+              </span>
+            </td>
+            <td>{{ market.openClaims }}</td>
+            <td [class.hot]="market.unassignedClaims > 0">{{ market.unassignedClaims }}</td>
+            <td [class.hot]="market.agingOver7Days > 0">{{ market.agingOver7Days }}</td>
+            <td class="strong">{{ currencySummary(market.openReserveByCurrency) }}</td>
+            <td>{{ market.submittedLast7Days }}</td>
+            <td>{{ market.decidedLast7Days }}</td>
+            <td>{{ market.settledLast7Days }}</td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="8"><div class="empty-state">No claims in this market yet.</div></td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </section>
+
+    <section class="surface section">
+      <div class="section-head">
+        <h2>Officer workload</h2>
+        <span class="hint">Balance the queue before it becomes a backlog</span>
+      </div>
+      <p-table [value]="data.officerWorkload" [tableStyleClass]="'manager-table'">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Officer</th>
+            <th>Market</th>
+            <th>Open</th>
+            <th>Review</th>
+            <th>Info</th>
+            <th>Assessed</th>
+            <th>Approved</th>
+            <th>Aging &gt; 7d</th>
+            <th>Settled 7d</th>
+            <th>Avg cycle</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-officer>
+          <tr>
+            <td class="strong">{{ officer.officerName }}</td>
+            <td>{{ officer.marketCode }}</td>
+            <td class="strong">{{ officer.openClaims }}</td>
+            <td>{{ officer.byStatus['UNDER_REVIEW'] }}</td>
+            <td>{{ officer.byStatus['INFO_REQUESTED'] }}</td>
+            <td>{{ officer.byStatus['ASSESSED'] }}</td>
+            <td>{{ officer.byStatus['APPROVED'] }}</td>
+            <td [class.hot]="officer.agingOver7Days > 0">{{ officer.agingOver7Days }}</td>
+            <td>{{ officer.settledLast7Days }}</td>
+            <td>{{ officer.averageCycleTimeDays === null ? '—' : officer.averageCycleTimeDays + 'd' }}</td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="10"><div class="empty-state">No officer workload in this view.</div></td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </section>
+  } @else if (loading()) {
+    <div class="surface section empty-state">
+      <i class="pi pi-spin pi-spinner" style="font-size: 1.5rem"></i>
+      <p style="margin-top: 0.6rem">Building the portfolio view…</p>
+    </div>
+  }
+</div>

@@ -1,0 +1,129 @@
+<div class="login-shell">
+  <section class="brand-panel">
+    <div class="brand-mark">
+      <span class="brand-block">C</span>
+      <div>
+        <div class="brand-name">CHUBB</div>
+        <div class="brand-sub">APAC Claims Platform</div>
+      </div>
+    </div>
+
+    <div class="brand-copy">
+      <span class="eyebrow">One claim, one clear journey</span>
+      <h1>Claims made visible, from incident to decision.</h1>
+      <p>
+        Claimants know what is happening. Officers see the work that matters. Managers see where
+        people, reserves and attention should go next.
+      </p>
+
+      <div class="value-list">
+        <div class="value-item">
+          <i class="pi pi-shield"></i>
+          <div>
+            <strong>Transparent to claimants</strong>
+            <span>Live status, information requests and decisions in one timeline.</span>
+          </div>
+        </div>
+        <div class="value-item">
+          <i class="pi pi-users"></i>
+          <div>
+            <strong>Built for claims teams</strong>
+            <span>Market-scoped queue, atomic pickup and a guided assessment flow.</span>
+          </div>
+        </div>
+        <div class="value-item">
+          <i class="pi pi-chart-line"></i>
+          <div>
+            <strong>Decision-ready for managers</strong>
+            <span>Exposure by currency, officer load, cycle time and attention lists.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="brand-footer">
+      <span>Motor & property · six APAC markets</span>
+      <span class="dot"></span>
+      <span>REST + Kafka</span>
+    </div>
+  </section>
+
+  <section class="form-panel">
+    <div class="login-card">
+      <div class="login-head">
+        <span class="eyebrow">Welcome back</span>
+        <h2>Sign in to the claims platform</h2>
+        <p class="muted">Your role decides what you see and what you can action.</p>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="submit()" class="login-form">
+        <div class="field">
+          <label class="field-label" for="email">Email address</label>
+          <input
+            id="email"
+            pInputText
+            type="email"
+            autocomplete="username"
+            formControlName="email"
+            placeholder="you@example.com"
+            class="w-full"
+          />
+          @if (form.controls.email.touched && form.controls.email.invalid) {
+            <small class="field-error">Enter a valid email address.</small>
+          }
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="password">Password</label>
+          <p-password
+            inputId="password"
+            formControlName="password"
+            [feedback]="false"
+            [toggleMask]="true"
+            autocomplete="current-password"
+            placeholder="Your password"
+            styleClass="w-full"
+            inputStyleClass="w-full"
+          ></p-password>
+          @if (form.controls.password.touched && form.controls.password.invalid) {
+            <small class="field-error">Password is required.</small>
+          }
+        </div>
+
+        @if (error()) {
+          <div class="login-error">
+            <i class="pi pi-exclamation-circle"></i>
+            <span>{{ error() }}</span>
+          </div>
+        }
+
+        <p-button
+          type="submit"
+          label="Sign in"
+          icon="pi pi-arrow-right"
+          iconPos="right"
+          styleClass="w-full login-submit"
+          [loading]="loading()"
+        ></p-button>
+      </form>
+
+      <div class="demo-block">
+        <div class="demo-head">
+          <span>Demo accounts</span>
+          <small>Password for all: <code>Password123!</code></small>
+        </div>
+        <div class="demo-grid">
+          @for (account of demoAccounts; track account.email) {
+            <button type="button" class="demo-card" (click)="useDemo(account)">
+              <i [class]="account.icon"></i>
+              <span class="demo-label">{{ account.label }}</span>
+              <span class="demo-role">{{ account.role }}</span>
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+
+    <p class="login-foot">Chubb APAC assessment · local demo environment</p>
+  </section>
+</div>

@@ -1,0 +1,540 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <span class="eyebrow">Claims operations</span>
+      <h1>Claims workspace</h1>
+      <p class="subtitle">Pick up incoming work, move claims forward and keep your desk visible.</p>
+    </div>
+    <div class="header-actions">
+      <p-select
+        [ngModel]="statusFilter()"
+        (ngModelChange)="onFilterChange($event)"
+        [options]="statusOptions"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Filter queue"
+        styleClass="filter-select"
+      ></p-select>
+      <p-button
+        icon="pi pi-refresh"
+        label="Refresh"
+        [text]="true"
+        severity="secondary"
+        (onClick)="load()"
+      ></p-button>
+    </div>
+  </header>
+
+  <section class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-icon"><i class="pi pi-briefcase"></i></div>
+      <div class="stat-body">
+        <span class="stat-label">My open claims</span>
+        <span class="stat-value">{{ workloadLoading() ? '—' : workload()?.totalOpen ?? 0 }}</span>
+        <span class="stat-note">assigned to me</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon warn"><i class="pi pi-eye"></i></div>
+      <div class="stat-body">
+        <span class="stat-label">Under review</span>
+        <span class="stat-value">{{ byStatus()?.['UNDER_REVIEW'] ?? 0 }}</span>
+        <span class="stat-note">ready for assessment</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon danger"><i class="pi pi-question-circle"></i></div>
+      <div class="stat-body">
+        <span class="stat-label">Waiting on claimant</span>
+        <span class="stat-value">{{ byStatus()?.['INFO_REQUESTED'] ?? 0 }}</span>
+        <span class="stat-note">information requested</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon teal"><i class="pi pi-clipboard"></i></div>
+      <div class="stat-body">
+        <span class="stat-label">Assessed</span>
+        <span class="stat-value">{{ byStatus()?.['ASSESSED'] ?? 0 }}</span>
+        <span class="stat-note">awaiting a decision</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon success"><i class="pi pi-check-circle"></i></div>
+      <div class="stat-body">
+        <span class="stat-label">Approved</span>
+        <span class="stat-value">{{ byStatus()?.['APPROVED'] ?? 0 }}</span>
+        <span class="stat-note">ready to settle</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="workspace-grid">
+    <section class="surface section queue-section">
+      <div class="section-head">
+        <div>
+          <h2>Incoming queue</h2>
+          <span class="hint">Unassigned claims in your market · oldest first</span>
+        </div>
+        <span class="pill">{{ queue().length }} waiting</span>
+      </div>
+
+      <p-table [value]="queue()" [loading]="queueLoading()" [tableStyleClass]="'queue-table'">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Reference</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Age</th>
+            <th>Claimed</th>
+            <th></th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-item>
+          <tr>
+            <td>
+              <span class="ref-cell">{{ item.reference }}</span>
+              <span class="muted tiny">{{ item.marketCode }} · {{ shortDate(item.submittedAt) }}</span>
+            </td>
+            <td>{{ claimTypeLabel(item.claimType) }}</td>
+            <td>
+              <p-tag [value]="statusLabel(item.status)" [severity]="statusSeverity(item.status)"></p-tag>
+            </td>
+            <td>
+              <span [class.aging]="item.ageDays > 7">{{ ageLabel(item.ageDays) }}</span>
+            </td>
+            <td class="money-cell">{{ money(item.claimedAmount, item.currency) }}</td>
+            <td class="action-cell">
+              <div class="row-actions">
+                @if (item.status === 'SUBMITTED') {
+                  <p-button
+                    label="Pick up"
+                    icon="pi pi-hand-pointer"
+                    size="small"
+                    [loading]="actionLoading()"
+                    (onClick)="assign(item.id)"
+                  ></p-button>
+                }
+                <p-button
+                  label="Open"
+                  icon="pi pi-arrow-up-right"
+                  size="small"
+                  [text]="true"
+                  (onClick)="openClaim(item.id)"
+                ></p-button>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="6">
+              <div class="empty-state">The queue is clear. Nothing waiting right now.</div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </section>
+
+    <aside class="desk-column">
+      <section class="surface section">
+        <div class="section-head">
+          <h2>My desk</h2>
+          <span class="hint">Oldest open claims</span>
+        </div>
+
+        <div class="status-bars">
+          @for (entry of deskStatuses; track entry.key) {
+            <div class="bar-row">
+              <span class="bar-label">{{ entry.label }}</span>
+              <div class="bar-track">
+                <span
+                  class="bar-fill"
+                  [style.width.%]="workload()?.totalOpen ? ((byStatus()?.[entry.key] ?? 0) / (workload()!.totalOpen)) * 100 : 0"
+                  [style.background]="entry.color"
+                ></span>
+              </div>
+              <span class="bar-value">{{ byStatus()?.[entry.key] ?? 0 }}</span>
+            </div>
+          }
+        </div>
+
+        @if (workload()?.oldestOpen?.length) {
+          <div class="desk-list">
+            @for (item of workload()!.oldestOpen; track item.id) {
+              <button type="button" class="desk-row" (click)="openClaim(item.id)">
+                <div class="desk-main">
+                  <span class="ref-cell">{{ item.reference }}</span>
+                  <span class="muted tiny">{{ claimTypeLabel(item.claimType) }} · {{ ageLabel(item.ageDays) }}</span>
+                </div>
+                <p-tag [value]="statusLabel(item.status)" [severity]="statusSeverity(item.status)"></p-tag>
+              </button>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">No assigned open claims.</div>
+        }
+      </section>
+
+      <section class="surface section guidance">
+        <div class="section-head">
+          <h2>Next action</h2>
+        </div>
+        <ol class="guidance-list">
+          <li><strong>Review</strong> the incident and confirm the policy.</li>
+          <li><strong>Request information</strong> if evidence is missing.</li>
+          <li><strong>Assess</strong> the amount and set the reserve.</li>
+          <li><strong>Decide</strong> approve or reject, then settle.</li>
+        </ol>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<p-dialog
+  [visible]="detailVisible()"
+  (visibleChange)="detailVisible.set($event)"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [dismissableMask]="true"
+  [style]="{ width: 'min(1100px, 94vw)' }"
+  header="Claim review"
+>
+  @if (detailLoading()) {
+    <div class="empty-state">Loading claim…</div>
+  } @else if (detail(); as claim) {
+    <div class="detail-head">
+      <div>
+        <div class="detail-ref">{{ claim.reference }}</div>
+        <div class="muted tiny">
+          {{ claimTypeLabel(claim.claimType) }} · {{ claim.marketCode }} market · submitted
+          {{ shortDate(claim.submittedAt) }}
+        </div>
+      </div>
+      <div class="detail-head-right">
+        <p-tag [value]="statusLabel(claim.status)" [severity]="statusSeverity(claim.status)"></p-tag>
+        @if (assignedToMe()) {
+          <span class="pill assigned">Assigned to you</span>
+        } @else if (claim.assignedOfficerId) {
+          <span class="pill">Assigned to another officer</span>
+        } @else {
+          <span class="pill">Unassigned</span>
+        }
+      </div>
+    </div>
+
+    <div class="action-bar">
+      @if (!claim.assignedOfficerId) {
+        <p-button
+          label="Pick up claim"
+          icon="pi pi-hand-pointer"
+          [loading]="actionLoading()"
+          (onClick)="assign(claim.id)"
+        ></p-button>
+      }
+      @if (assignedToMe()) {
+        @if (canRequestInfo()) {
+          <p-button
+            label="Request information"
+            icon="pi pi-question-circle"
+            severity="warn"
+            [outlined]="true"
+            (onClick)="openInfo()"
+          ></p-button>
+        }
+        @if (canAssess()) {
+          <p-button
+            label="Record assessment"
+            icon="pi pi-clipboard"
+            [outlined]="true"
+            (onClick)="openAssess()"
+          ></p-button>
+        }
+        @if (canDecide()) {
+          <p-button label="Record decision" icon="pi pi-verified" (onClick)="openDecision()"></p-button>
+        }
+        @if (canSettle()) {
+          <p-button
+            label="Settle claim"
+            icon="pi pi-check-circle"
+            severity="success"
+            [loading]="actionLoading()"
+            (onClick)="settle()"
+          ></p-button>
+        }
+      }
+    </div>
+
+    <div class="claimant-strip">
+      <div class="claimant-avatar">{{ claim.claimantName?.charAt(0) ?? '?' }}</div>
+      <div>
+        <span class="strong">{{ claim.claimantName || 'Claimant' }}</span>
+        <span class="muted tiny">{{ claim.claimantEmail || '—' }}</span>
+      </div>
+      <div class="strip-meta">
+        <span class="meta-label">Reserve</span>
+        <span class="strong">{{ claim.reserveAmount === null ? 'Not set' : money(claim.reserveAmount, claim.currency) }}</span>
+      </div>
+    </div>
+
+    <div class="detail-meta-grid">
+      <div>
+        <span class="meta-label">Incident date</span>
+        <span class="meta-value">{{ shortDate(claim.incidentDate) }}</span>
+      </div>
+      <div>
+        <span class="meta-label">Location</span>
+        <span class="meta-value">{{ claim.incidentLocation || '—' }}</span>
+      </div>
+      <div>
+        <span class="meta-label">Claimed amount</span>
+        <span class="meta-value">{{ money(claim.claimedAmount, claim.currency) }}</span>
+      </div>
+      <div>
+        <span class="meta-label">Assigned</span>
+        <span class="meta-value">{{ claim.assignedOfficerId ? 'Yes' : 'No' }}</span>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <h3>Incident</h3>
+      <p class="description">{{ claim.description }}</p>
+      @if (detailEntries().length) {
+        <div class="detail-chips">
+          @for (entry of detailEntries(); track entry.key) {
+            <span class="detail-chip">
+              <span>{{ entry.key }}</span>
+              <strong>{{ entry.value }}</strong>
+            </span>
+          }
+        </div>
+      }
+    </div>
+
+    @if (claim.latestAssessment; as assessment) {
+      <div class="detail-section assessment-card">
+        <div class="section-head">
+          <h3>Latest assessment</h3>
+          <span class="assessment-amount">{{ money(assessment.assessedAmount, claim.currency) }}</span>
+        </div>
+        <p class="description">{{ assessment.notes }}</p>
+        <span class="muted tiny">{{ dateTime(assessment.createdAt) }}</span>
+      </div>
+    }
+
+    @if (claim.decision; as decision) {
+      <div class="detail-section decision-card" [class.rejected]="decision.outcome === 'REJECTED'">
+        <div class="decision-head">
+          <i
+            class="pi"
+            [class.pi-check-circle]="decision.outcome === 'APPROVED'"
+            [class.pi-times-circle]="decision.outcome === 'REJECTED'"
+          ></i>
+          <div>
+            <h3>{{ decision.outcome === 'APPROVED' ? 'Approved' : 'Rejected' }}</h3>
+            <span class="muted tiny">{{ dateTime(decision.decidedAt) }}</span>
+          </div>
+          @if (decision.settlementAmount !== null) {
+            <span class="decision-amount">{{ money(decision.settlementAmount, claim.currency) }}</span>
+          }
+        </div>
+        <p>{{ decision.reason }}</p>
+      </div>
+    }
+
+    <div class="detail-section">
+      <div class="section-head">
+        <h3>Information requests</h3>
+        <span class="hint">{{ claim.infoRequests.length }} total</span>
+      </div>
+      @if (claim.infoRequests.length === 0) {
+        <div class="muted tiny">No information requested.</div>
+      }
+      <div class="stack">
+        @for (request of claim.infoRequests; track request.id) {
+          <div class="info-card" [class.answered]="request.status === 'ANSWERED'">
+            <div class="info-head">
+              <span class="info-question">{{ request.question }}</span>
+              <p-tag
+                [value]="request.status === 'ANSWERED' ? 'Answered' : 'Open'"
+                [severity]="request.status === 'ANSWERED' ? 'success' : 'warn'"
+              ></p-tag>
+            </div>
+            <div class="muted tiny">Requested {{ dateTime(request.requestedAt) }}</div>
+            @if (request.response) {
+              <div class="info-response">
+                <span class="meta-label">Claimant response</span>
+                <span>{{ request.response }}</span>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <h3>Timeline</h3>
+      <p-timeline [value]="timeline()">
+        <ng-template pTemplate="content" let-event>
+          <div class="timeline-card">
+            <div class="timeline-head">
+              <i [class]="event.icon" [style.color]="event.color"></i>
+              <span class="strong">{{ transitionLabel(event) }}</span>
+              <span class="muted tiny">{{ dateTime(event.occurredAt) }}</span>
+            </div>
+            @if (event.note) {
+              <div class="timeline-note">{{ event.note }}</div>
+            }
+          </div>
+        </ng-template>
+      </p-timeline>
+    </div>
+  } @else {
+    <div class="empty-state">Claim not found.</div>
+  }
+</p-dialog>
+
+<p-dialog
+  [visible]="infoVisible()"
+  (visibleChange)="infoVisible.set($event)"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: 'min(560px, 94vw)' }"
+  header="Request information"
+>
+  <form [formGroup]="infoForm" (ngSubmit)="requestInfo()" class="stack">
+    <div class="field">
+      <label class="field-label">What do you need from the claimant?</label>
+      <textarea
+        pTextarea
+        formControlName="question"
+        rows="4"
+        placeholder="e.g. Please upload the police report"
+        class="w-full"
+      ></textarea>
+      @if (infoForm.controls.question.touched && infoForm.controls.question.invalid) {
+        <small class="field-error">Enter a question for the claimant.</small>
+      }
+    </div>
+    <div class="dialog-actions">
+      <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="infoVisible.set(false)"></p-button>
+      <p-button
+        type="submit"
+        label="Send request"
+        icon="pi pi-send"
+        [loading]="actionLoading()"
+      ></p-button>
+    </div>
+  </form>
+</p-dialog>
+
+<p-dialog
+  [visible]="assessVisible()"
+  (visibleChange)="assessVisible.set($event)"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: 'min(600px, 94vw)' }"
+  header="Record assessment"
+>
+  <form [formGroup]="assessForm" (ngSubmit)="assess()" class="stack">
+    <div class="field">
+      <label class="field-label">Assessment notes</label>
+      <textarea
+        pTextarea
+        formControlName="notes"
+        rows="4"
+        placeholder="Damage assessment, coverage checks, reasoning"
+        class="w-full"
+      ></textarea>
+      @if (assessForm.controls.notes.touched && assessForm.controls.notes.invalid) {
+        <small class="field-error">Assessment notes are required.</small>
+      }
+    </div>
+    <div class="field">
+      <label class="field-label">Assessed amount / reserve</label>
+      <p-inputnumber
+        formControlName="assessedAmount"
+        mode="decimal"
+        [min]="0"
+        [minFractionDigits]="2"
+        [maxFractionDigits]="2"
+        styleClass="w-full"
+        inputStyleClass="w-full"
+      ></p-inputnumber>
+      @if (assessForm.controls.assessedAmount.touched && assessForm.controls.assessedAmount.invalid) {
+        <small class="field-error">Enter the assessed amount.</small>
+      }
+    </div>
+    <div class="dialog-actions">
+      <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="assessVisible.set(false)"></p-button>
+      <p-button
+        type="submit"
+        label="Save assessment"
+        icon="pi pi-check"
+        [loading]="actionLoading()"
+      ></p-button>
+    </div>
+  </form>
+</p-dialog>
+
+<p-dialog
+  [visible]="decisionVisible()"
+  (visibleChange)="decisionVisible.set($event)"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: 'min(620px, 94vw)' }"
+  header="Record decision"
+>
+  <form [formGroup]="decisionForm" (ngSubmit)="decide()" class="stack">
+    <div class="form-grid">
+      <div class="field">
+        <label class="field-label">Outcome</label>
+        <p-select
+          formControlName="outcome"
+          [options]="outcomeOptions"
+          optionLabel="label"
+          optionValue="value"
+          styleClass="w-full"
+        ></p-select>
+      </div>
+      <div class="field">
+        <label class="field-label">Settlement amount (optional)</label>
+        <p-inputnumber
+          formControlName="settlementAmount"
+          mode="decimal"
+          [min]="0"
+          [minFractionDigits]="2"
+          [maxFractionDigits]="2"
+          styleClass="w-full"
+          inputStyleClass="w-full"
+        ></p-inputnumber>
+        <small class="muted tiny">Leave blank to use the latest assessed amount.</small>
+      </div>
+      <div class="field full">
+        <label class="field-label">Reason</label>
+        <textarea
+          pTextarea
+          formControlName="reason"
+          rows="3"
+          placeholder="Coverage decision and rationale"
+          class="w-full"
+        ></textarea>
+        @if (decisionForm.controls.reason.touched && decisionForm.controls.reason.invalid) {
+          <small class="field-error">A decision reason is required.</small>
+        }
+      </div>
+    </div>
+    <div class="dialog-actions">
+      <p-button label="Cancel" [text]="true" severity="secondary" (onClick)="decisionVisible.set(false)"></p-button>
+      <p-button
+        type="submit"
+        label="Record decision"
+        icon="pi pi-verified"
+        [loading]="actionLoading()"
+      ></p-button>
+    </div>
+  </form>
+</p-dialog>

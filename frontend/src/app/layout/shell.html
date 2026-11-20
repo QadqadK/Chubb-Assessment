@@ -1,0 +1,76 @@
+<div class="app-shell" [class.nav-open]="navOpen()">
+  <aside class="sidebar">
+    <div class="side-brand">
+      <div class="side-mark">C</div>
+      <div>
+        <div class="side-name">CHUBB</div>
+        <div class="side-sub">Claims platform</div>
+      </div>
+    </div>
+
+    <div class="workspace-chip">
+      <i class="pi pi-building"></i>
+      <span>{{ workspaceLabel() }}</span>
+    </div>
+
+    <nav class="side-nav">
+      @for (item of navItems(); track item.path) {
+        <a
+          class="nav-link"
+          [routerLink]="item.path"
+          routerLinkActive="active"
+          (click)="closeNav()"
+        >
+          <i [class]="item.icon"></i>
+          <span class="nav-copy">
+            <span class="nav-label">{{ item.label }}</span>
+            <span class="nav-hint">{{ item.hint }}</span>
+          </span>
+        </a>
+      }
+    </nav>
+
+    <div class="side-foot">
+      <div class="foot-line">
+        <span class="status-dot"></span>
+        <span>Platform connected</span>
+      </div>
+      <div class="foot-meta">{{ user()?.marketCode }} market · {{ roleLabel() }}</div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="nav-toggle" type="button" (click)="toggleNav()" aria-label="Toggle navigation">
+        <i class="pi pi-bars"></i>
+      </button>
+
+      <div class="topbar-title">
+        <span class="topbar-kicker">Chubb APAC</span>
+        <span class="topbar-page">{{ workspaceLabel() }}</span>
+      </div>
+
+      <div class="topbar-user">
+        <div class="avatar">{{ initials() }}</div>
+        <div class="user-copy">
+          <span class="user-name">{{ user()?.fullName }}</span>
+          <span class="user-meta">{{ user()?.email }}</span>
+        </div>
+        <p-tag [value]="roleLabel()" severity="info" styleClass="role-tag"></p-tag>
+        <p-button
+          icon="pi pi-sign-out"
+          [text]="true"
+          severity="secondary"
+          (onClick)="logout()"
+          aria-label="Sign out"
+        ></p-button>
+      </div>
+    </header>
+
+    <main class="content">
+      <router-outlet />
+    </main>
+  </div>
+
+  <button class="scrim" type="button" (click)="closeNav()" aria-label="Close navigation"></button>
+</div>
