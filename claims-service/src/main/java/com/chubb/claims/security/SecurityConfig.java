@@ -100,6 +100,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers(HttpMethod.POST, "/claims").hasRole("CLAIMANT")
                         .requestMatchers(HttpMethod.GET, "/claims", "/claims/*").hasRole("CLAIMANT")
+                        .requestMatchers(HttpMethod.GET, "/policies").hasRole("CLAIMANT")
                         .requestMatchers(HttpMethod.POST, "/claims/*/documents").hasRole("CLAIMANT")
                         .requestMatchers(HttpMethod.POST, "/claims/*/info-requests/*/response").hasRole("CLAIMANT")
                         .requestMatchers(HttpMethod.GET,

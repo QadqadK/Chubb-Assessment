@@ -7,6 +7,7 @@ import com.chubb.claims.api.dto.ClaimDtos.CreateClaimRequest;
 import com.chubb.claims.api.dto.ClaimDtos.DocumentView;
 import com.chubb.claims.api.dto.ClaimDtos.InfoRequestView;
 import com.chubb.claims.api.dto.ClaimDtos.RespondInfoRequestRequest;
+import com.chubb.claims.api.dto.PolicyDtos.PolicyView;
 import com.chubb.claims.api.error.BadRequestException;
 import com.chubb.claims.api.error.ConflictException;
 import com.chubb.claims.api.error.ForbiddenOperationException;
@@ -96,6 +97,21 @@ public class ClaimService {
     public List<ClaimSummary> listMine(UUID claimantId) {
         return claims.findByClaimantIdOrderBySubmittedAtDesc(claimantId).stream()
                 .map(mapper::toSummary)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<PolicyView> listPolicies(UUID claimantId) {
+        return policies.findByHolderId(claimantId).stream()
+                .map(policy -> new PolicyView(
+                        policy.getId(),
+                        policy.getPolicyNumber(),
+                        policy.getPolicyType(),
+                        policy.getMarketCode(),
+                        policy.getCurrency(),
+                        policy.getCoverageLimit(),
+                        policy.getStartDate(),
+                        policy.getEndDate()))
                 .toList();
     }
 

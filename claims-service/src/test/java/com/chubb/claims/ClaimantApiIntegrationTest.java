@@ -126,6 +126,17 @@ class ClaimantApiIntegrationTest {
     }
 
     @Test
+    void claimantCanListPoliciesForSubmission() throws Exception {
+        String token = login("claimant.my@example.com");
+
+        mvc.perform(get("/policies").header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[?(@.policyNumber == 'MY-MOT-000101')]", hasSize(1)))
+                .andExpect(jsonPath("$[?(@.policyNumber == 'MY-MOT-000101')].policyType").value("MOTOR"));
+    }
+
+    @Test
     void claimDetailRequiresAuthentication() throws Exception {
         mvc.perform(get("/claims"))
                 .andExpect(status().isUnauthorized());
