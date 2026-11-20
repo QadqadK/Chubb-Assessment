@@ -1,5 +1,7 @@
 package com.chubb.claims;
 
+import com.chubb.claims.domain.OutboxEvent;
+import com.chubb.claims.repository.OutboxEventRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -18,7 +20,9 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -29,7 +33,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "app.outbox.publisher-enabled=false",
+        "app.kafka.topics-enabled=false"})
 @AutoConfigureMockMvc
 @Testcontainers
 class OfficerWorkflowIntegrationTest {
@@ -48,6 +54,7 @@ class OfficerWorkflowIntegrationTest {
 
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
+    @Autowired OutboxEventRepository outbox;
 
     @Test
     void queueShowsIncomingClaimAndOnlyOneOfficerCanPickItUp() throws Exception {
@@ -157,6 +164,26 @@ class OfficerWorkflowIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SETTLED"))
                 .andExpect(jsonPath("$.closedAt").isNotEmpty());
+
+        List<OutboxEvent> events = outbox.findByAggregateIdOrderByCreatedAtAsc(UUID.fromString(claimId));
+        assertThat(events).extracting(OutboxEvent::getEventType).containsExactly(
+                "CLAIM_SUBMITTED",
+                "CLAIM_ASSIGNED",
+                "INFO_REQUESTED",
+                "INFO_PROVIDED",
+                "CLAIM_ASSESSED",
+                "CLAIM_DECIDED",
+                "CLAIM_SETTLED");
+        events.forEach(event -> assertThat(event.getPublishedAt()).isNull());
+
+        JsonNode decided = json.readTree(events.stream()
+                .filter(event -> event.getEventType().equals("CLAIM_DECIDED"))
+                .findFirst()
+                .orElseThrow()
+                .getPayload());
+        assertThat(decided.get("data").get("outcome").asText()).isEqualTo("APPROVED");
+        assertThat(decided.get("data").get("settlementAmount").decimalValue())
+                .isEqualByComparingTo("4200.00");
     }
 
     @Test

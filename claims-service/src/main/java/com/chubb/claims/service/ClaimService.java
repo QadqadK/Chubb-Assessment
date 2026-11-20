@@ -18,6 +18,7 @@ import com.chubb.claims.domain.InfoRequest;
 import com.chubb.claims.domain.InfoRequestStatus;
 import com.chubb.claims.domain.Policy;
 import com.chubb.claims.domain.User;
+import com.chubb.claims.event.ClaimEventTypes;
 import com.chubb.claims.repository.ClaimEventRepository;
 import com.chubb.claims.repository.ClaimRepository;
 import com.chubb.claims.repository.DecisionRepository;
@@ -33,6 +34,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -83,7 +85,8 @@ public class ClaimService {
         claim.setClaimedAmount(request.claimedAmount());
 
         Claim saved = claims.save(claim);
-        recorder.record(saved, "CLAIM_SUBMITTED", null, ClaimStatus.SUBMITTED, claimantId, null);
+        recorder.record(saved, ClaimEventTypes.CLAIM_SUBMITTED, null, ClaimStatus.SUBMITTED, claimantId, null,
+                Map.of("policyId", policy.getId(), "incidentDate", request.incidentDate()));
         return mapper.toSummary(saved);
     }
 
@@ -133,7 +136,9 @@ public class ClaimService {
         if (!stillOpen) {
             claim.transitionTo(ClaimStatus.UNDER_REVIEW);
         }
-        recorder.record(claim, "INFO_PROVIDED", ClaimStatus.INFO_REQUESTED, claim.getStatus(), claimantId, null);
+        recorder.record(claim, ClaimEventTypes.INFO_PROVIDED,
+                ClaimStatus.INFO_REQUESTED, claim.getStatus(), claimantId, null,
+                Map.of("infoRequestId", infoRequest.getId()));
 
         return mapper.toInfoRequest(infoRequest);
     }
@@ -152,7 +157,8 @@ public class ClaimService {
         document.setStoragePath(stored.storagePath());
 
         Document saved = documents.save(document);
-        recorder.record(claim, "DOCUMENT_UPLOADED", null, null, claimantId, stored.fileName());
+        recorder.record(claim, ClaimEventTypes.DOCUMENT_UPLOADED, null, null, claimantId, stored.fileName(),
+                Map.of("documentId", saved.getId(), "fileName", stored.fileName()));
         return mapper.toDocument(saved);
     }
 

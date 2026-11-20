@@ -23,6 +23,7 @@ import com.chubb.claims.domain.DecisionOutcome;
 import com.chubb.claims.domain.InfoRequest;
 import com.chubb.claims.domain.InfoRequestStatus;
 import com.chubb.claims.domain.User;
+import com.chubb.claims.event.ClaimEventTypes;
 import com.chubb.claims.repository.AssessmentRepository;
 import com.chubb.claims.repository.ClaimEventRepository;
 import com.chubb.claims.repository.ClaimRepository;
@@ -42,6 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -123,8 +125,9 @@ public class OfficerService {
 
         claim.setAssignedOfficerId(officer.id());
         claim.transitionTo(ClaimStatus.UNDER_REVIEW);
-        recorder.record(claim, "CLAIM_ASSIGNED",
-                ClaimStatus.SUBMITTED, ClaimStatus.UNDER_REVIEW, officer.id(), null);
+        recorder.record(claim, ClaimEventTypes.CLAIM_ASSIGNED,
+                ClaimStatus.SUBMITTED, ClaimStatus.UNDER_REVIEW, officer.id(), null,
+                Map.of("assignedOfficerId", officer.id()));
         claims.saveAndFlush(claim);
         return toView(claim);
     }
@@ -149,7 +152,9 @@ public class OfficerService {
         if (before == ClaimStatus.UNDER_REVIEW) {
             claim.transitionTo(ClaimStatus.INFO_REQUESTED);
         }
-        recorder.record(claim, "INFO_REQUESTED", before, claim.getStatus(), officer.id(), null);
+        recorder.record(claim, ClaimEventTypes.INFO_REQUESTED,
+                before, claim.getStatus(), officer.id(), null,
+                Map.of("infoRequestId", infoRequest.getId(), "question", request.question()));
         return mapper.toInfoRequest(infoRequest);
     }
 
@@ -171,8 +176,11 @@ public class OfficerService {
 
         claim.setReserveAmount(request.assessedAmount());
         claim.transitionTo(ClaimStatus.ASSESSED);
-        recorder.record(claim, "CLAIM_ASSESSED",
-                ClaimStatus.UNDER_REVIEW, ClaimStatus.ASSESSED, officer.id(), null);
+        recorder.record(claim, ClaimEventTypes.CLAIM_ASSESSED,
+                ClaimStatus.UNDER_REVIEW, ClaimStatus.ASSESSED, officer.id(), null,
+                Map.of("assessmentId", assessment.getId(),
+                        "assessedAmount", request.assessedAmount(),
+                        "notes", request.notes()));
         return mapper.toAssessment(assessment);
     }
 
@@ -207,8 +215,15 @@ public class OfficerService {
         decision.setSettlementAmount(settlementAmount);
         decisions.save(decision);
 
-        recorder.record(claim, "CLAIM_DECIDED",
-                ClaimStatus.ASSESSED, claim.getStatus(), officer.id(), request.reason());
+        Map<String, Object> eventData = new LinkedHashMap<>();
+        eventData.put("decisionId", decision.getId());
+        eventData.put("outcome", request.outcome().name());
+        eventData.put("reason", request.reason());
+        if (settlementAmount != null) {
+            eventData.put("settlementAmount", settlementAmount);
+        }
+        recorder.record(claim, ClaimEventTypes.CLAIM_DECIDED,
+                ClaimStatus.ASSESSED, claim.getStatus(), officer.id(), request.reason(), eventData);
         return mapper.toDecision(decision);
     }
 
@@ -220,7 +235,7 @@ public class OfficerService {
         }
 
         claim.transitionTo(ClaimStatus.SETTLED);
-        recorder.record(claim, "CLAIM_SETTLED",
+        recorder.record(claim, ClaimEventTypes.CLAIM_SETTLED,
                 ClaimStatus.APPROVED, ClaimStatus.SETTLED, officer.id(), null);
         return mapper.toSummary(claim);
     }

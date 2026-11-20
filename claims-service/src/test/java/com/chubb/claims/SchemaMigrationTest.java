@@ -23,7 +23,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * - Hibernate's schema validation (ddl-auto=validate) accepts every entity mapping,
  * - the seed data is present, and JSONB + optimistic locking behave as intended.
  */
-@SpringBootTest
+@SpringBootTest(properties = {
+        "app.outbox.publisher-enabled=false",
+        "app.kafka.topics-enabled=false"})
 @Testcontainers
 class SchemaMigrationTest {
 

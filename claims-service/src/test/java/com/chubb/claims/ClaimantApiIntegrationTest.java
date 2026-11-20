@@ -3,8 +3,10 @@ package com.chubb.claims;
 import com.chubb.claims.domain.Claim;
 import com.chubb.claims.domain.ClaimStatus;
 import com.chubb.claims.domain.InfoRequest;
+import com.chubb.claims.domain.OutboxEvent;
 import com.chubb.claims.repository.ClaimRepository;
 import com.chubb.claims.repository.InfoRequestRepository;
+import com.chubb.claims.repository.OutboxEventRepository;
 import com.chubb.claims.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,7 +27,9 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
@@ -35,7 +39,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "app.outbox.publisher-enabled=false",
+        "app.kafka.topics-enabled=false"})
 @AutoConfigureMockMvc
 @Testcontainers
 class ClaimantApiIntegrationTest {
@@ -59,6 +65,7 @@ class ClaimantApiIntegrationTest {
     @Autowired ClaimRepository claims;
     @Autowired InfoRequestRepository infoRequests;
     @Autowired UserRepository users;
+    @Autowired OutboxEventRepository outbox;
 
     @Test
     void loginRejectsWrongPassword() throws Exception {
@@ -93,6 +100,29 @@ class ClaimantApiIntegrationTest {
                 .andExpect(jsonPath("$.timeline[0].toStatus").value("SUBMITTED"))
                 .andExpect(jsonPath("$.infoRequests").isEmpty())
                 .andExpect(jsonPath("$.documents").isEmpty());
+    }
+
+    @Test
+    void submittingAClaimWritesAnUnpublishedOutboxEvent() throws Exception {
+        String token = login("claimant.my@example.com");
+        String claimId = json.readTree(submit(token, MY_MOTOR_POLICY, "2026-11-01", "Outbox test")
+                .getResponse().getContentAsString()).get("id").asText();
+
+        List<OutboxEvent> rows = outbox.findByAggregateIdOrderByCreatedAtAsc(UUID.fromString(claimId));
+
+        assertThat(rows).hasSize(1);
+        OutboxEvent row = rows.get(0);
+        assertThat(row.getEventType()).isEqualTo("CLAIM_SUBMITTED");
+        assertThat(row.getPublishedAt()).isNull();
+
+        JsonNode payload = json.readTree(row.getPayload());
+        assertThat(payload.get("eventId").asText()).isNotBlank();
+        assertThat(payload.get("eventType").asText()).isEqualTo("CLAIM_SUBMITTED");
+        assertThat(payload.get("schemaVersion").asInt()).isEqualTo(1);
+        assertThat(payload.get("claimId").asText()).isEqualTo(claimId);
+        assertThat(payload.get("reference").asText()).startsWith("CLM-MY-");
+        assertThat(payload.get("status").asText()).isEqualTo("SUBMITTED");
+        assertThat(payload.get("data").get("policyId").asText()).isEqualTo(MY_MOTOR_POLICY);
     }
 
     @Test
