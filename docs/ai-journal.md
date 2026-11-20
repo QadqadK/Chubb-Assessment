@@ -191,3 +191,23 @@ Entries marked `TODO(you)` need your own verdict before submission: the panel wi
     page renders 6 KPI cards, 5 charts and 4 attention cards. Console errors and failed requests were both zero.
     Screenshots reviewed for the login, claimant, submit dialog, officer detail and manager views.
 - **Accepted / Challenged:** TODO(you).
+
+## 10. Final end-to-end verification (documentation-only pass)
+- **Asked:** Run a clean review and end-to-end test of the claimant → officer → manager journey, make sure docs
+  reflect the work, and leave git ready to push. No feature code.
+- **Executed through the browser against the running stack:**
+  1. Claimant reported `CLM-MY-000012` (claimed 5,000) and saw **Submitted** in history.
+  2. Officer found it in the queue, picked it up (**Under Review**) and requested a police report.
+  3. Claimant answered the request; the claim returned to **Under Review**.
+  4. Officer assessed 4,500, approved and settled it.
+  5. Officer assessed and rejected the older `CLM-MY-000011` via the reject branch.
+  6. Claimant saw **Settled** and **Rejected** in history; the settled claim timeline contained Submitted,
+     Under Review, Info Requested, Assessed, Approved and Settled.
+  7. Manager dashboard updated to 6 open claims, 3 unassigned, 1 awaiting info, MYR 6,000 open reserve,
+     10 submitted / 4 decided / 3 settled in 7 days, 75% approval, 25% rejection and 92.1% settled-vs-claimed,
+     with 5 charts and 4 attention cards.
+- **System checks:** 0 browser console errors and 0 failed requests; 35 outbox events with 0 unpublished;
+  insights processed all 35 events into 10 claim projections and 30 notification records. Claims suite: 78 tests;
+  insights suite: 4 tests; frontend build and unit test pass.
+- **Docs updated:** README verification and known-gaps sections, architecture system diagram, this journal entry.
+- **Accepted / Challenged:** TODO(you).

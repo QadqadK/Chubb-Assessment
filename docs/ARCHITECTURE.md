@@ -1,5 +1,26 @@
 # Architecture decisions
 
+## System shape
+
+```
+Angular 21 + PrimeNG (claimant / officer / manager)
+        │  REST + JWT via dev proxy
+        ▼
+claims-service :8080 ───────────────► PostgreSQL `claims` schema
+        │  transactional outbox                 (claims, workflow, outbox)
+        │  poller, keyed by claim id
+        ▼
+Kafka topics: claim.submitted, claim.assigned, claim.info-requested,
+              claim.info-provided, claim.assessed, claim.decided, claim.settled
+        │  consumer group `insights-service`
+        ▼
+insights-service :8081 ─────────────► PostgreSQL `insights` schema
+                                          (claim_read_model, processed_events,
+                                           notification_log)
+        │
+        └── GET /manager/dashboard (MANAGER JWT)
+```
+
 ## ADR-001: Two services, not one or six
 `claims-service` is the command side (strict consistency, state machine, REST). `insights-service` is the
 read side (workload and exposure projections, notifications, audit), fed by Kafka. They have different

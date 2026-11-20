@@ -165,6 +165,35 @@ components, signals, a role guard, an HTTP bearer-token interceptor and PrimeNG'
 Chubb navy/teal palette. Charts are PrimeNG `p-chart` backed by Chart.js: open claims by status, reserve by
 market, officer workload by status, claim type mix and settlement ratio.
 
+## End-to-end verification
+
+A full browser-driven run against the local stack exercised every role:
+
+1. **Claimant** signed in, reported `CLM-MY-000012`, and saw it as **Submitted** in history.
+2. **Officer** found it in the queue, picked it up (**Under Review**) and requested more information.
+3. **Claimant** answered the information request; the claim returned to **Under Review**.
+4. **Officer** recorded an assessment of 4,500, approved and settled the claim.
+5. **Officer** assessed and rejected `CLM-MY-000011` through the separate reject path.
+6. **Claimant** saw **Settled** and **Rejected** in history, with every transition on the timeline.
+7. **Manager** saw the updated portfolio: 6 open claims, 3 unassigned, 1 awaiting information,
+   MYR 6,000 open reserve, 10 submitted / 4 decided / 3 settled in the last 7 days, 75% approval,
+   25% rejection, 92.1% settled-vs-claimed, 5 charts and 4 attention cards.
+
+There were **zero browser console errors and zero failed requests**. The outbox had **35 events, 0
+unpublished**; the insights projection processed all 35 into 10 claims and 30 notification records.
+
+## Known gaps / next steps
+
+- Notifications are a stubbed log; a production system would hand them to email/SMS.
+- Manager aggregation is in-memory over the read model; move to SQL/OLAP for volume.
+- No FX conversion: exposure and settlement are always reported per currency.
+- SLA thresholds, notification preferences and user administration are not configurable.
+- Seeded JWT users are development-only; replace with an identity provider.
+- Document bytes are stored on local disk; object storage and virus scanning are out of scope.
+- Manager UI shows ranked attention lists; claim-level drill-through and export are next.
+- Local Kafka and PostgreSQL are single-node; no replication, schema-registry contract or committed
+  browser E2E suite yet.
+
 ## Structure
 
 - `claims-service/` core domain: claims, workflow, REST API, transactional outbox
