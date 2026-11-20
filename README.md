@@ -2,7 +2,7 @@
 
 Motor and property claims platform for claimants, claims officers and managers.
 
-**Stack:** Java 21, Spring Boot 3.3, PostgreSQL 16, Kafka (KRaft), Angular (later phase).
+**Stack:** Java 21, Spring Boot 3.3, PostgreSQL 16, Kafka (KRaft), Angular 21, PrimeNG 21, Chart.js 4.
 
 ## Run locally
 
@@ -16,10 +16,16 @@ curl http://localhost:8080/actuator/health
 cd insights-service
 mvn spring-boot:run                  # starts on :8081, consumes the claim topics from earliest
 curl http://localhost:8081/actuator/health
+
+# in a third terminal
+cd frontend
+npm install
+npm start                            # Angular dev server on http://localhost:4200
 ```
 
 Run tests (needs Docker for Testcontainers):
 `cd claims-service && mvn test` and `cd insights-service && mvn test`.
+See [Frontend](#frontend-phase-7) for the browser demo and proxy setup.
 
 ## Seeded users (password for all: `Password123!`)
 
@@ -140,10 +146,30 @@ exposure and settlement figures are reported per currency. Notifications are wri
 `insights.notification_log` as an email stub. Aggregation is intentionally in-memory at demo scale; at volume
 these become SQL/OLAP projections.
 
+## Frontend (Phase 7)
+
+The Angular app is in `frontend/` and runs at `http://localhost:4200`. The dev server proxies
+`/claims-api` to `:8080` and `/insights-api` to `:8081` (`proxy.conf.json`), so no CORS setup is needed locally.
+
+Use the demo account cards on the sign-in page, or sign in directly:
+
+| Workspace | Account | What it shows |
+|---|---|---|
+| Claimant | `claimant.my@example.com` | Claim list, report dialog, timeline, information responses, document upload |
+| Claims officer | `officer.my1@example.com` | Unassigned queue, personal workload, pickup, info request, assessment, decision, settlement |
+| Manager | `manager.my@example.com` | KPI cards, PrimeNG/Chart.js portfolio charts and ranked attention lists |
+
+**Stack note:** PrimeNG 22 requires a PrimeUI license key and shows a license notice without one. This demo uses
+PrimeNG **21.1.10**, which is MIT-licensed, with Angular 21 and `@primeuix/themes` 2. The UI uses standalone
+components, signals, a role guard, an HTTP bearer-token interceptor and PrimeNG's Aura theme customised with a
+Chubb navy/teal palette. Charts are PrimeNG `p-chart` backed by Chart.js: open claims by status, reserve by
+market, officer workload by status, claim type mix and settlement ratio.
+
 ## Structure
 
 - `claims-service/` core domain: claims, workflow, REST API, transactional outbox
 - `insights-service/` Kafka consumer: manager/officer read models, exposure, notifications
+- `frontend/` Angular 21 + PrimeNG 21 role-based web app
 - `docs/ARCHITECTURE.md` design decisions
 - `docs/ai-journal.md` AI working journal
 
@@ -156,4 +182,4 @@ these become SQL/OLAP projections.
 - [x] Phase 4: officer queue and workflow
 - [x] Phase 5: transactional outbox and Kafka
 - [x] Phase 6: insights service and manager dashboard
-- [ ] Phase 7+: Angular frontend, documentation polish
+- [x] Phase 7: Angular frontend with PrimeNG charts

@@ -162,3 +162,32 @@ Entries marked `TODO(you)` need your own verdict before submission: the panel wi
     last 7 days, 100% approval rate and a 93.3% settled-vs-claimed ratio. A claimant token got 403 on
     `/manager/dashboard`; `?market=SG` scoped the response.
 - **Accepted / Challenged:** TODO(you).
+
+## 9. Phase 7: Angular + PrimeNG frontend
+- **Asked:** Build the frontend with PrimeNG charts, keeping the manager's allocation view in mind.
+- **AI produced:** an Angular 21 standalone/signals app in `frontend/` with a branded login, role-aware shell,
+  claimant workspace (list, report dialog, timeline, information response, document upload), officer workspace
+  (queue, personal workload, pickup, info request, assessment, decision, settlement) and a manager workspace
+  (KPI cards, five `p-chart` charts, market/officer tables, ranked attention lists). Added API services, bearer
+  interceptor, role guards and a dev proxy to `:8080` / `:8081`.
+- **Decisions worth defending:**
+  - The machine had PrimeNG 22, which requires a PrimeUI license key and shows an "Invalid PrimeUI License"
+    notice without one. PrimeNG 21 is MIT-licensed, so the app pins Angular 21 + PrimeNG 21.1.10 and documents
+    the reason. I upgraded Node to 26 for the Angular 21 CLI and removed the redundant root npm install; the
+    self-contained install is now only in `frontend/`.
+  - The dev proxy avoids CORS and keeps the frontend on one origin; production would use a gateway or explicit
+    CORS.
+  - The manager charts answer the four allocation questions directly: status mix, exposure by market, stacked
+    officer workload, type mix and settlement ratio. Attention lists show oldest unassigned, waiting on
+    claimant, approved-not-settled and largest exposure.
+  - PrimeNG's date picker did not display the bound initial value in this Angular 21 setup, so the submission
+    form uses a native date input styled with `pInputText`. This was a real working fix, not a design choice.
+  - Added `GET /policies` (claimant-only) to the claims service so the submission form can load real policy
+    data instead of hardcoding seeded IDs.
+- **Verified:**
+  - `npm run build` succeeds.
+  - Browser QA through the headless browser: all three demo roles login; claimant report dialog opens and a real
+    claim was submitted (`CLM-MY-000011`); officer queue and assigned-claim detail with actions render; manager
+    page renders 6 KPI cards, 5 charts and 4 attention cards. Console errors and failed requests were both zero.
+    Screenshots reviewed for the login, claimant, submit dialog, officer detail and manager views.
+- **Accepted / Challenged:** TODO(you).

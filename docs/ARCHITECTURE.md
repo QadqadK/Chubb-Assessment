@@ -113,3 +113,21 @@ Managers see all markets by default and can filter to one; this matches the brie
 The insights consumer records prospective claimant/officer messages in `notification_log`; a production
 deployment would hand these to email/SMS. Poison or processing failures are published to `claim.dead-letter`
 keyed by claim id, so the consumer keeps making progress while failures remain inspectable.
+
+## ADR-024: Angular 21 + PrimeNG 21, one role-aware app
+The frontend is a single Angular standalone/signals application. Login returns the seeded JWT; a route guard
+routes each role to its workspace (`/claimant`, `/officer`, `/manager`), and an HTTP interceptor attaches the
+bearer token. The shell provides the role navigation and user context. PrimeNG 22 requires a PrimeUI license
+key, so the app pins PrimeNG 21.1.10 (MIT) with Angular 21 and `@primeuix/themes` 2; the Aura preset is
+customised with a navy/teal palette.
+
+## ADR-025: Frontend talks through a dev proxy
+The dev server proxies `/claims-api` to `:8080` and `/insights-api` to `:8081`, keeping the browser on one
+origin and avoiding per-service CORS configuration for the demo. A production deployment would use one gateway
+or explicit CORS and environment-based API URLs.
+
+## ADR-026: Manager dashboard is chart-first
+The manager workspace is built from PrimeNG `p-chart` (Chart.js): status mix, reserve by market, stacked officer
+workload, claim type mix and settlement ratio, with KPI cards and ranked attention lists. It consumes only the
+insights projection, so the dashboard's view is independent of the command-side write model. The claimant and
+officer workspaces use PrimeNG tables, dialogs, forms, tags and timelines.
