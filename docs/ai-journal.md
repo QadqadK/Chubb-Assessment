@@ -76,3 +76,32 @@ Entries marked `TODO(you)` need your own verdict before submission: the panel wi
     401; officer on `/claims` 403.
   - The live run left one sample MY motor claim in the dev database, useful for Phase 4 demos.
 - **Accepted / Challenged:** TODO(you).
+
+## 6. Phase 4: officer queue and decision workflow
+- **Asked:** Build the officer queue and the pickup → review → info request → assessment → decision → settlement
+  workflow. Standardise queue and information-request shapes.
+- **AI produced:** `GET /officer/queue` (status filter, officer's market, paged), `GET /officer/me/workload`,
+  `GET /officer/claims/{id}`, then `assign`, `info-requests`, `assessment`, `decision`, `settle`. Every command
+  checks that the claim is in the officer's market and assigned to that officer.
+- **Standardisation decisions:**
+  - All list endpoints now use `PageResponse` (`items`, `page`, `size`, `totalElements`, `totalPages`).
+  - `InfoRequestView` is identical for claimant and officer and now includes `claimId` and `requestedBy`.
+  - The officer claim view is separate from the claimant view: it adds claimant identity, reserve amount,
+    latest assessment and assignment. Reserve is not exposed to claimants.
+  - Workload always returns every open status, including zero counts, so the UI does not have to guess keys.
+- **Workflow decisions:**
+  - Pickup requires status `SUBMITTED` and no existing assignee; `@Version` closes the race, and a lost update
+    is mapped to HTTP 409.
+  - Assessment sets `reserveAmount` to the assessed amount. Exposure is therefore the sum of reserves on open
+    claims.
+  - An approved decision defaults `settlementAmount` to the latest assessment; a rejection clears it.
+  - Claimant detail still returns 404 for someone else's claim; officer actions return 403 for an unassigned or
+    other officer's claim.
+- **Verified:**
+  - `mvn test` — 76 tests, 0 failures (56 state-machine, 9 claimant API, 6 officer workflow, 3 schema, 2 security).
+  - Live run on :8080: queue showed 3 submitted claims; officer 1 picked one up; officer 2 got 409; info request
+    went OPEN → claimant ANSWERED → claim back to review; assessment 4200; approval defaulted settlement to 4200;
+    settle produced `SETTLED` with a 7-event timeline. Workload counts returned to zero for open claims.
+  - Dev database now has two submitted claims for queue demos (`CLM-MY-000001`, `CLM-MY-000002`) and one settled
+    claim (`CLM-MY-000003`).
+- **Accepted / Challenged:** TODO(you).

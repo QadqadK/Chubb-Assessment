@@ -50,3 +50,18 @@ A claim can have several open information requests. Answering one records the an
 ## ADR-012: Testcontainers version override
 Spring Boot 3.3.5 manages Testcontainers 1.19.8, which is incompatible with Docker Engine 29 (API 1.56).
 The POM overrides `testcontainers.version` to 1.21.4 so container-backed tests run locally.
+
+## ADR-013: Officer queue is market-scoped and paged
+The queue only returns unassigned claims in the officer's market. It accepts an optional status filter and uses
+the shared `PageResponse` envelope, ordered oldest first. Officers cannot query another market through the
+`market` parameter; that is reserved for a future manager view.
+
+## ADR-014: Pickup is atomic, commands are assignment-scoped
+Assignment requires `SUBMITTED` with no assignee. The claim's `@Version` column makes the pickup a lost-update
+guard: if two officers race, one commit wins and the other receives 409. Every later command requires the
+calling officer to be the assignee; viewing a same-market claim is allowed before pickup.
+
+## ADR-015: Assessment drives exposure; decision defaults settlement
+Recording an assessment copies the assessed amount into `reserveAmount`, so exposure is the sum of reserves on
+open claims. An approval defaults its settlement amount to the latest assessment when the officer does not supply
+one; a rejection has no settlement amount. Settlement closes the claim.
