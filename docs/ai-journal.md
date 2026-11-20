@@ -131,3 +131,34 @@ Entries marked `TODO(you)` need your own verdict before submission: the panel wi
     (two submissions plus one of each transition), all with `unpublished = 0`; consuming each topic showed the
     claim id as key and correct from/to status, amounts, actor and event-specific `data`.
 - **Accepted / Challenged:** TODO(you).
+
+## 8. Phase 6: insights service and manager dashboard
+- **Asked:** Build the Kafka read side and make the manager view answer: where should I put people, resources
+  and business attention to improve profitability, customer experience and operational efficiency?
+- **AI produced:** a second Spring Boot service, `insights-service` on :8081, owning an `insights` schema. It
+  consumes all seven topics, deduplicates on `eventId`, and folds `claim_read_model`, `processed_events` and
+  `notification_log`. `GET /manager/dashboard` returns portfolio, market/type/status breakdowns, officer
+  workload and ranked attention lists. Security validates the same JWT and requires `ROLE_MANAGER`.
+- **Decisions worth defending:**
+  - Insights never reads the claims schema. The projection is disposable and rebuildable from Kafka.
+  - `processed_events.event_id` is the idempotency key, matching the producer's at-least-once delivery.
+  - Events are on separate topics, so the projector uses `occurredAt` and `last_event_at` to tolerate
+    cross-topic reordering; a late event can fill missing facts but cannot move status backwards.
+  - I enriched the producer's `data` maps with claimant/officer names so the read model can show allocation by
+    person without calling back to claims-service. This is additive and old events still fold with null names.
+  - Dashboard grouping mirrors the manager's questions: open/unassigned, reserve by currency,
+    awaiting-info and approved-not-settled, officer age/volume, 7-day throughput, cycle time, approval rate,
+    settled-vs-claimed ratio, oldest unassigned and largest exposure.
+  - Currency is reported per currency; no FX conversion. Aggregation is in-memory at demo scale and documented
+    as the next thing to move to SQL/OLAP at volume.
+  - A `claim.dead-letter` topic keeps poison messages inspectable without blocking the consumer.
+- **Verified:**
+  - `insights-service`: 4 tests, 0 failures (full lifecycle fold, duplicate/stale handling, late submission,
+    dashboard metrics and market filtering).
+  - `claims-service`: 77 tests, 0 failures after adding names to event payloads.
+  - Live both services: insights consumed the 8 historical events (2 claims) from the `earliest` offset; a new
+    workflow produced named events. The dashboard then showed 5 open claims, 3 unassigned, 1 awaiting info,
+    MYR 6,000 open reserve, officer Omar with 2 open claims (1 info-requested, 1 assessed), 2 settlements in the
+    last 7 days, 100% approval rate and a 93.3% settled-vs-claimed ratio. A claimant token got 403 on
+    `/manager/dashboard`; `?market=SG` scoped the response.
+- **Accepted / Challenged:** TODO(you).

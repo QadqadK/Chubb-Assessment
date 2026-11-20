@@ -86,3 +86,30 @@ read models without calling back, and the version field gives a migration path.
 ## ADR-019: Document uploads are timeline-only
 A document upload records a claim event but has no Kafka topic, because no other component reacts to it and
 insights does not need it for workload or exposure.
+
+## ADR-020: Insights is a rebuildable projection
+`insights-service` owns the `insights` schema and never reads the claims tables. It consumes all seven topics into
+`claim_read_model`, keyed by claim id, and records every consumed event in `processed_events` with a unique
+`eventId`. That makes replay safe (deduplicate) and lets the read side be dropped and rebuilt from Kafka.
+Because the events are on separate topics, cross-topic delivery can reorder; each event carries `occurredAt`, so
+the projector ignores an event older than the claim's `last_event_at` while still filling immutable gaps
+(submission time, claimant name, officer). A single topic with an event-type header would remove this
+complication; the projector is the cheaper alternative that keeps the explicit topic subscriptions.
+
+## ADR-021: Manager dashboard asks allocation questions
+`GET /manager/dashboard` is served entirely from the read model. It answers four questions: where is the
+backlog and unassigned work, where is the reserve exposure by currency, who is overloaded and aging, and what
+needs attention first (oldest unassigned, waiting on claimant, approved but unsettled, largest reserves). It
+also reports throughput and outcome signals: submission/decision/settlement counts in the last 7 days, average
+cycle time, approval/rejection rate and settled-vs-claimed ratio per currency. Aggregation is in-memory over the
+projection at demo scale; the DTO is designed so it can later be backed by SQL/OLAP without a UI contract change.
+
+## ADR-022: Shared JWT contract, manager-only insights API
+Insights does not have a login endpoint and does not copy the users table. It validates the same HS256 JWT
+issued by claims-service (same `JWT_SECRET` and issuer) and requires `ROLE_MANAGER` for `/manager/**`.
+Managers see all markets by default and can filter to one; this matches the brief's cross-market view.
+
+## ADR-023: Stubbed notifications and a dead-letter topic
+The insights consumer records prospective claimant/officer messages in `notification_log`; a production
+deployment would hand these to email/SMS. Poison or processing failures are published to `claim.dead-letter`
+keyed by claim id, so the consumer keeps making progress while failures remain inspectable.

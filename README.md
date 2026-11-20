@@ -11,9 +11,15 @@ docker compose up -d                 # postgres on :5432, kafka on :9092
 cd claims-service
 mvn spring-boot:run                  # starts on :8080, Flyway migrates + seeds the DB
 curl http://localhost:8080/actuator/health
+
+# in a second terminal
+cd insights-service
+mvn spring-boot:run                  # starts on :8081, consumes the claim topics from earliest
+curl http://localhost:8081/actuator/health
 ```
 
-Run tests (needs Docker for Testcontainers): `cd claims-service && mvn test`
+Run tests (needs Docker for Testcontainers):
+`cd claims-service && mvn test` and `cd insights-service && mvn test`.
 
 ## Seeded users (password for all: `Password123!`)
 
@@ -104,10 +110,40 @@ docker exec chubb-kafka /opt/kafka/bin/kafka-console-consumer.sh \
   --bootstrap-server localhost:9092 --topic claim.decided --from-beginning
 ```
 
+## Manager dashboard (Phase 6)
+
+`insights-service` consumes every claim topic, deduplicates on `eventId` and folds the stream into an
+`insights` schema. The read model is rebuildable from Kafka. The manager endpoint answers the allocation
+question: where are the people, money and attention needed?
+
+```bash
+MANAGER_TOKEN=$(curl -s -X POST http://localhost:8080/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"manager.my@example.com","password":"Password123!"}' | jq -r .token)
+
+curl "http://localhost:8081/manager/dashboard?market=MY" -H "Authorization: Bearer $MANAGER_TOKEN"
+```
+
+The response is grouped around four decisions:
+
+- **Portfolio and profitability** — open claims, unassigned work, awaiting information, approved but not
+  settled, reserve exposure by currency, settled amount vs claimed (settlement ratio), approval/rejection
+  rates and average cycle time.
+- **Where to allocate people** — officer workload with open counts by status, aging over 7 days, recent
+  settlements and cycle time; unassigned depth by market and type.
+- **Customer experience / SLA** — oldest open claims, claims waiting on the claimant, approved claims waiting
+  to be paid, and aging buckets by market and type.
+- **Business attention** — the oldest unassigned claims and the largest open reserves, ready to drill into.
+
+A manager sees all markets by default and can filter with `?market=SG`. Currency is never silently converted;
+exposure and settlement figures are reported per currency. Notifications are written to
+`insights.notification_log` as an email stub. Aggregation is intentionally in-memory at demo scale; at volume
+these become SQL/OLAP projections.
+
 ## Structure
 
-- `claims-service/` core domain: claims, workflow, REST API, event publishing
-- `insights-service/` (Phase 6) Kafka consumer: workload and exposure read models, notifications
+- `claims-service/` core domain: claims, workflow, REST API, transactional outbox
+- `insights-service/` Kafka consumer: manager/officer read models, exposure, notifications
 - `docs/ARCHITECTURE.md` design decisions
 - `docs/ai-journal.md` AI working journal
 
@@ -119,5 +155,5 @@ docker exec chubb-kafka /opt/kafka/bin/kafka-console-consumer.sh \
 - [x] Phase 3: auth and claimant APIs
 - [x] Phase 4: officer queue and workflow
 - [x] Phase 5: transactional outbox and Kafka
-- [ ] Phase 6: insights service
-- [ ] Phase 7+: integration tests, docs, Angular
+- [x] Phase 6: insights service and manager dashboard
+- [ ] Phase 7+: Angular frontend, documentation polish
