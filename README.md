@@ -4,6 +4,8 @@ Motor and property claims platform for claimants, claims officers and managers.
 
 **Stack:** Java 21, Spring Boot 3.3, PostgreSQL 16, Kafka (KRaft), Angular 21, PrimeNG 21, Chart.js 4.
 
+**Time used:** 1st prompt - 6.43 pm, final prompt - 9.50 pm
+
 ## Run locally
 
 ```bash
@@ -160,10 +162,12 @@ Use the demo account cards on the sign-in page, or sign in directly:
 | Manager | `manager.my@example.com` | KPI cards, PrimeNG/Chart.js portfolio charts and ranked attention lists |
 
 **Stack note:** PrimeNG 22 requires a PrimeUI license key and shows a license notice without one. This demo uses
-PrimeNG **21.1.10**, which is MIT-licensed, with Angular 21 and `@primeuix/themes` 2. The UI uses standalone
-components, signals, a role guard, an HTTP bearer-token interceptor and PrimeNG's Aura theme customised with a
-Chubb navy/teal palette. Charts are PrimeNG `p-chart` backed by Chart.js: open claims by status, reserve by
-market, officer workload by status, claim type mix and settlement ratio.
+PrimeNG **21.1.10**, which is MIT-licensed, with Angular 21 and `@primeuix/themes` 2. Angular 21 officially
+supports Node 20.19+, 22.12+ and 24.x; the existing Node 22.22.1 already met that range. Node 26 is listed for
+Angular 22, not Angular 21, so it is not required here. The UI uses standalone components, signals, a role guard,
+an HTTP bearer-token interceptor and PrimeNG's Aura theme customised with a Chubb navy/teal palette. Charts are
+PrimeNG `p-chart` backed by Chart.js: open claims by status, reserve by market, officer workload by status, claim
+type mix and settlement ratio.
 
 ## End-to-end verification
 

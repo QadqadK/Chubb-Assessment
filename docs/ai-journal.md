@@ -3,21 +3,22 @@
 Format per entry: **Asked** → **AI produced** → **Accepted / Challenged / Overrode** → **Why**.
 Entries marked `TODO(you)` need your own verdict before submission: the panel will probe these.
 
+Note: Phase 0 and Phase 1 was done on a free web LLM for planning, while the rest of the phase was done with a paid AI agent for coding.
+Time used: 1st prompt - 6.43 pm, final prompt - 9.50 pm
 ---
 
 ## 1. Problem analysis and plan (pre-code)
 - **Asked:** How to approach the brief; what assessors want; phased build plan; sync (REST) vs async (Kafka) split.
-- **AI produced:** Two-service design (claims-service + insights-service), outbox pattern, state machine,
-  REST/Kafka rule of thumb, 9-phase plan with time budget and a cut order.
-- **Accepted:** TODO(you)
-- **Challenged / overrode:** TODO(you). Candidate points: is two services justified at this scale? Is the
-  outbox worth the time vs. publishing directly after commit?
+- **AI produced:** Two-service design (claims-service + insights-service), outbox pattern, state machine, REST/Kafka rule of thumb, 9-phase plan with time budget and a cut order.
+- **Accepted:** Accepted the design. Two service design allows for a clean separation of responsibility. Each service can scale independently.
+- **Challenged / overrode:** Candidate points: is two services justified at this scale? Is the outbox worth the time vs. publishing directly after commit?
+  - Yes. I want to handle data between DB and Kafka without getting inconsistencies. Basically data reliability is the main focus here.
 
 ## 2. Phase 0: repo scaffold and local infra
 - **Asked:** Start building phases 0 and 1; list git commands first; PostgreSQL as DB.
 - **AI produced:** docker-compose (Postgres 16 + single-node Kafka in KRaft mode), README, ADRs, .gitignore.
-- **Accepted:** Kafka KRaft (no ZooKeeper) for a lighter local setup. TODO(you): confirm.
-- **Verified:** Not run end to end. `docker compose up` still needs a check on your machine.
+- **Accepted:** Kafka KRaft (no ZooKeeper) for a lighter local setup. 
+- **Verified:** backend was verified on the machine. Opened docker desktop and ran docker compose up.
 
 ## 3. Phase 1: schema, seed data, entities
 - **AI produced:** Flyway V1 (11 tables) and V2 (6 markets, 2 teams, 6 users, 3 policies); JPA entities and
@@ -25,22 +26,8 @@ Entries marked `TODO(you)` need your own verdict before submission: the panel wi
 - **Verified by me (the AI):** ran V1 + V2 against a real PostgreSQL 16: all tables created, seed counts correct,
   status CHECK and foreign-key constraints reject bad rows.
 - **Not verified:** Java was never compiled and the Maven test never ran (no Maven Central access in the AI's sandbox).
-  TODO(you): run `mvn test` and record any failures here; that is a genuine "AI output needed fixing" entry.
-
-### Decisions the AI made that you should be able to defend (challenge any you disagree with)
-| Decision | Reasoning | Risk / alternative |
-|---|---|---|
-| FKs as plain UUID fields, not JPA associations | Clear aggregate boundaries, no lazy-load or N+1 surprises | Less convenient joins; use projections or queries |
-| `incident_details` as JSONB | Motor and property fields differ; avoids two sparse tables | Weaker DB constraints; validate in API layer |
-| `VARCHAR(3)` for currency, not `CHAR(3)` | Hibernate schema validation maps String to varchar and rejects bpchar | Slightly less strict; enforce with a CHECK or enum later |
-| `claimed_amount` and `reserve_amount` separate | Exposure uses reserve (officer's estimate), not the claimant's claim | Reserve rules are undefined in the brief; this is an assumption |
-| One decision per claim (`UNIQUE claim_id`) | Matches the simple workflow | Reopening or appeals would need a schema change |
-| Seeded users with a shared BCrypt password | Fast demo and test setup | Dev-only; never ship seed credentials |
-| Six markets with fixed currencies | Brief says "six markets"; the exact list was my assumption | TODO(you): confirm the markets |
-| `ddl-auto: validate` | Flyway owns the schema; Hibernate only verifies it | Startup fails loudly on drift, which is intended |
-
-### Overrides so far
-- TODO(you): add at least one real override, e.g. something you changed in the AI's output after reading it.
+  TODO: run `mvn test` and record any failures here; that is a genuine "AI output needed fixing" entry.
+  - mvn test was ran, it recorded a failure that a simple import fixed. Otherwise, no failure. Java was also compiled on the machine.
 
 ## 4. Phase 2: claim state machine
 - **Asked:** Implement the claim lifecycle rules with unit tests, no database.
@@ -49,8 +36,8 @@ Entries marked `TODO(you)` need your own verdict before submission: the panel wi
   callers cannot bypass the rules. Tests assert all 49 from/to pairs against an independently written matrix,
   plus info-request loop, terminal states, null target and exception details.
 - **Verified:** `mvn -Dtest=ClaimStateMachineTest test` — 56 tests, 0 failures (JDK 21, Maven 3.8.7 in WSL).
-- **Accepted / Challenged:** TODO(you). Be ready to explain: why remove the setter (state guards must be
-  unbypassable), and why `closedAt` lives on the aggregate rather than only in the event timeline.
+- **Accepted / Challenged:** why remove the setter (state guards must be unbypassable), and why `closedAt` lives on the aggregate rather than only in the event timeline.
+ - A public setter would allow other components to bypass the claim state machine. closedAt lives on aggregate to tell closed claim time only. It's way simpler than extracting from timeline.
 
 ## 5. Phase 3: JWT auth and claimant APIs
 - **Asked:** Add login for the seeded users and the claimant journey: submit, list, track, upload documents
@@ -75,7 +62,8 @@ Entries marked `TODO(you)` need your own verdict before submission: the panel wi
     401; claimant login 200; submit claim `CLM-MY-000001` 201; detail shows `CLAIM_SUBMITTED`; bad password
     401; officer on `/claims` 403.
   - The live run left one sample MY motor claim in the dev database, useful for Phase 4 demos.
-- **Accepted / Challenged:** TODO(you).
+- **Accepted / Challenged:** Testcontainers dependency override — Overrode AI's original dependency version.
+ - Testcontainers 1.19.8 was incompatible with my local Docker Engine 29.8 environment. Overrode testcontainers.version to 1.21.4 in the Maven POM. Then it ran successfully.
 
 ## 6. Phase 4: officer queue and decision workflow
 - **Asked:** Build the officer queue and the pickup → review → info request → assessment → decision → settlement
@@ -104,7 +92,7 @@ Entries marked `TODO(you)` need your own verdict before submission: the panel wi
     settle produced `SETTLED` with a 7-event timeline. Workload counts returned to zero for open claims.
   - Dev database now has two submitted claims for queue demos (`CLM-MY-000001`, `CLM-MY-000002`) and one settled
     claim (`CLM-MY-000003`).
-- **Accepted / Challenged:** TODO(you).
+- **Accepted / Challenged:** No challenges. All decision workflow is logical.
 
 ## 7. Phase 5: transactional outbox and Kafka
 - **Asked:** Implement Phase 5: write events with each transition and publish them to Kafka without the
@@ -130,7 +118,8 @@ Entries marked `TODO(you)` need your own verdict before submission: the panel wi
   - Live on :8080 with the docker-compose broker: all seven topics existed; a full workflow produced 8 outbox rows
     (two submissions plus one of each transition), all with `unpublished = 0`; consuming each topic showed the
     claim id as key and correct from/to status, amounts, actor and event-specific `data`.
-- **Accepted / Challenged:** TODO(you).
+- **Accepted / Challenged:** Is having seven separate topics necessary? Wouldn't a single claims.events topic be simpler?. Why are document uploads timeline-only?
+ - Yes, it allows downstream consumers to subscribe to relevant event types. If other backend service wants to receive a specific kafka event in the future, separating topics are useful for choosing necessary ones. Documents uploads timeline only as another async event just for uploads are not necessary.
 
 ## 8. Phase 6: insights service and manager dashboard
 - **Asked:** Build the Kafka read side and make the manager view answer: where should I put people, resources
@@ -161,7 +150,8 @@ Entries marked `TODO(you)` need your own verdict before submission: the panel wi
     MYR 6,000 open reserve, officer Omar with 2 open claims (1 info-requested, 1 assessed), 2 settlements in the
     last 7 days, 100% approval rate and a 93.3% settled-vs-claimed ratio. A claimant token got 403 on
     `/manager/dashboard`; `?market=SG` scoped the response.
-- **Accepted / Challenged:** TODO(you).
+- **Accepted / Challenged:** Why add claimant and officer names to Kafka events?
+ - The manager dashboard needs to display: Officer Omar - 2 outstanding claims. so payload contains the name.
 
 ## 9. Phase 7: Angular + PrimeNG frontend
 - **Asked:** Build the frontend with PrimeNG charts, keeping the manager's allocation view in mind.
@@ -173,8 +163,9 @@ Entries marked `TODO(you)` need your own verdict before submission: the panel wi
 - **Decisions worth defending:**
   - The machine had PrimeNG 22, which requires a PrimeUI license key and shows an "Invalid PrimeUI License"
     notice without one. PrimeNG 21 is MIT-licensed, so the app pins Angular 21 + PrimeNG 21.1.10 and documents
-    the reason. I upgraded Node to 26 for the Angular 21 CLI and removed the redundant root npm install; the
-    self-contained install is now only in `frontend/`.
+    the reason. Angular 21 officially supports Node 20.19+, 22.12+ and 24.x; the pre-existing Node 22.22.1
+    already met that range. Node 26 was used during development but is listed for Angular 22, not Angular 21,
+    so it was unnecessary for this app. The self-contained install is now only in `frontend/`.
   - The dev proxy avoids CORS and keeps the frontend on one origin; production would use a gateway or explicit
     CORS.
   - The manager charts answer the four allocation questions directly: status mix, exposure by market, stacked
@@ -190,7 +181,8 @@ Entries marked `TODO(you)` need your own verdict before submission: the panel wi
     claim was submitted (`CLM-MY-000011`); officer queue and assigned-claim detail with actions render; manager
     page renders 6 KPI cards, 5 charts and 4 attention cards. Console errors and failed requests were both zero.
     Screenshots reviewed for the login, claimant, submit dialog, officer detail and manager views.
-- **Accepted / Challenged:** TODO(you).
+- **Accepted / Challenged:** Why choose PrimeNG? 
+ - PrimeNG provides ready-made components such as data tables, dialogs, forms, charts and navigation elements. This reduces the time required to build UI components from scratch while maintaining consistent styling across claimant, officer and manager workspaces.
 
 ## 10. Final end-to-end verification (documentation-only pass)
 - **Asked:** Run a clean review and end-to-end test of the claimant → officer → manager journey, make sure docs
@@ -210,4 +202,20 @@ Entries marked `TODO(you)` need your own verdict before submission: the panel wi
   insights processed all 35 events into 10 claim projections and 30 notification records. Claims suite: 78 tests;
   insights suite: 4 tests; frontend build and unit test pass.
 - **Docs updated:** README verification and known-gaps sections, architecture system diagram, this journal entry.
-- **Accepted / Challenged:** TODO(you).
+
+
+## 11. Post-Phase 7 UI polish: manager chart card heights
+- **Asked:** The “Open claims by type” chart box looked shorter than the other chart cards; make the manager chart
+  heights consistent, especially around the type chart and reserve exposure.
+- **Problem:** Every manager chart used the same card structure, but “Open claims by type” and “Settlement ratio”
+  used the `chart-body small` modifier (240px) while status, reserve and officer workload used 300px. The type
+  doughnut therefore had less vertical room, and the chart grid did not read as one consistent dashboard.
+- **Decision:** Remove the `small` variant from the type and settlement charts and keep a single 300px chart body
+  for every manager chart. This preserves one shared layout, keeps the CSS grid cards at equal height, and does
+  not change the underlying data or chart design.
+- **Verified:** Measured in the browser after the change: all five chart cards are 374px high with a 300px chart
+  body. `npm run build` passes; no console errors or failed requests.
+- **Commit:** `a085cc2 fix(ui): align manager chart card heights`
+- **Accepted / Challenged:** Standardizing box size vs Making graph smaller.
+ - box size should be standardized. Making graph smaller looks inconsistent.
+
