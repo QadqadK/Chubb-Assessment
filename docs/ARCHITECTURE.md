@@ -33,3 +33,20 @@ a poller. Avoids the dual-write problem when Kafka is unavailable.
 ## ADR-008: Migrations are immutable
 Flyway migrations are never edited after commit; changes go in a new `V<n>` file. Entities are validated against
 the schema at startup (`ddl-auto: validate`).
+
+## ADR-009: Stateless JWT auth with seeded users
+`POST /auth/login` verifies a BCrypt password and issues an HS256 JWT. The token carries the user id (`sub`),
+role, market and name. Spring Security's resource-server filter validates it; roles become `ROLE_*` authorities.
+A real identity provider is out of scope, but replacing the token issuer does not change the API contract.
+
+## ADR-010: Ownership violations return 404
+Claimant endpoints load the claim and compare `claimantId` with the token subject. A mismatch returns 404, not
+403, so a claimant cannot use responses to discover whether another person's claim ID exists.
+
+## ADR-011: Information request completion
+A claim can have several open information requests. Answering one records the answer but keeps the claim in
+`INFO_REQUESTED` until the last open request is answered, then transitions it back to `UNDER_REVIEW`.
+
+## ADR-012: Testcontainers version override
+Spring Boot 3.3.5 manages Testcontainers 1.19.8, which is incompatible with Docker Engine 29 (API 1.56).
+The POM overrides `testcontainers.version` to 1.21.4 so container-backed tests run locally.
