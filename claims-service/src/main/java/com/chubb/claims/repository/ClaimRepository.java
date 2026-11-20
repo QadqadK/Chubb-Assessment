@@ -14,9 +14,13 @@ import java.util.UUID;
 public interface ClaimRepository extends JpaRepository<Claim, UUID> {
     List<Claim> findByClaimantIdOrderBySubmittedAtDesc(UUID claimantId);
 
-    List<Claim> findByAssignedOfficerIdAndStatusIn(UUID officerId, Collection<ClaimStatus> statuses);
+    List<Claim> findByAssignedOfficerIdAndStatusInOrderBySubmittedAtAsc(
+            UUID officerId, Collection<ClaimStatus> statuses);
 
-    Page<Claim> findByStatusAndAssignedOfficerIdIsNull(ClaimStatus status, Pageable pageable);
+    Page<Claim> findByAssignedOfficerIdIsNullAndMarketCode(String marketCode, Pageable pageable);
+
+    Page<Claim> findByAssignedOfficerIdIsNullAndMarketCodeAndStatus(
+            String marketCode, ClaimStatus status, Pageable pageable);
 
     @Query(value = "SELECT nextval('claims.claim_reference_seq')", nativeQuery = true)
     long nextReferenceNumber();

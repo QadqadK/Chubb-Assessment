@@ -4,8 +4,11 @@ import com.chubb.claims.domain.Assessment;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface AssessmentRepository extends JpaRepository<Assessment, UUID> {
     List<Assessment> findByClaimIdOrderByCreatedAtDesc(UUID claimId);
+
+    Optional<Assessment> findFirstByClaimIdOrderByCreatedAtDesc(UUID claimId);
 }

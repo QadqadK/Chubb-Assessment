@@ -6,6 +6,7 @@ import com.chubb.claims.api.error.ForbiddenOperationException;
 import com.chubb.claims.api.error.NotFoundException;
 import com.chubb.claims.domain.IllegalClaimTransitionException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -33,11 +34,16 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler({ConflictException.class, IllegalClaimTransitionException.class,
-            DataIntegrityViolationException.class})
+            DataIntegrityViolationException.class, OptimisticLockingFailureException.class})
     ResponseEntity<ApiError> conflict(Exception ex) {
-        String message = ex instanceof DataIntegrityViolationException
-                ? "The request conflicts with existing data"
-                : ex.getMessage();
+        String message;
+        if (ex instanceof DataIntegrityViolationException) {
+            message = "The request conflicts with existing data";
+        } else if (ex instanceof OptimisticLockingFailureException) {
+            message = "Claim was updated by another officer. Reload and try again.";
+        } else {
+            message = ex.getMessage();
+        }
         return error(HttpStatus.CONFLICT, message);
     }
 

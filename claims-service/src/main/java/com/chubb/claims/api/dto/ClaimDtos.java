@@ -62,6 +62,8 @@ public final class ClaimDtos {
 
     public record InfoRequestView(
             UUID id,
+            UUID claimId,
+            UUID requestedBy,
             String question,
             String response,
             InfoRequestStatus status,

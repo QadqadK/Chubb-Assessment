@@ -12,7 +12,6 @@ import com.chubb.claims.api.error.ConflictException;
 import com.chubb.claims.api.error.ForbiddenOperationException;
 import com.chubb.claims.api.error.NotFoundException;
 import com.chubb.claims.domain.Claim;
-import com.chubb.claims.domain.ClaimEvent;
 import com.chubb.claims.domain.ClaimStatus;
 import com.chubb.claims.domain.Document;
 import com.chubb.claims.domain.InfoRequest;
@@ -49,6 +48,7 @@ public class ClaimService {
     private final DecisionRepository decisions;
     private final ClaimMapper mapper;
     private final DocumentStorage documentStorage;
+    private final ClaimEventRecorder recorder;
 
     @Transactional
     public ClaimSummary submit(UUID claimantId, CreateClaimRequest request) {
@@ -83,7 +83,7 @@ public class ClaimService {
         claim.setClaimedAmount(request.claimedAmount());
 
         Claim saved = claims.save(claim);
-        recordEvent(saved, "CLAIM_SUBMITTED", null, ClaimStatus.SUBMITTED, claimantId, null);
+        recorder.record(saved, "CLAIM_SUBMITTED", null, ClaimStatus.SUBMITTED, claimantId, null);
         return mapper.toSummary(saved);
     }
 
@@ -133,7 +133,7 @@ public class ClaimService {
         if (!stillOpen) {
             claim.transitionTo(ClaimStatus.UNDER_REVIEW);
         }
-        recordEvent(claim, "INFO_PROVIDED", ClaimStatus.INFO_REQUESTED, claim.getStatus(), claimantId, null);
+        recorder.record(claim, "INFO_PROVIDED", ClaimStatus.INFO_REQUESTED, claim.getStatus(), claimantId, null);
 
         return mapper.toInfoRequest(infoRequest);
     }
@@ -152,7 +152,7 @@ public class ClaimService {
         document.setStoragePath(stored.storagePath());
 
         Document saved = documents.save(document);
-        recordEvent(claim, "DOCUMENT_UPLOADED", null, null, claimantId, stored.fileName());
+        recorder.record(claim, "DOCUMENT_UPLOADED", null, null, claimantId, stored.fileName());
         return mapper.toDocument(saved);
     }
 
@@ -164,21 +164,5 @@ public class ClaimService {
             throw new NotFoundException("Claim not found");
         }
         return claim;
-    }
-
-    private void recordEvent(Claim claim,
-                             String eventType,
-                             ClaimStatus from,
-                             ClaimStatus to,
-                             UUID actorId,
-                             String note) {
-        ClaimEvent event = new ClaimEvent();
-        event.setClaimId(claim.getId());
-        event.setEventType(eventType);
-        event.setFromStatus(from);
-        event.setToStatus(to);
-        event.setActorId(actorId);
-        event.setNote(note);
-        events.save(event);
     }
 }

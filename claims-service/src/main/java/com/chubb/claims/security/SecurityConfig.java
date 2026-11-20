@@ -102,6 +102,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/claims", "/claims/*").hasRole("CLAIMANT")
                         .requestMatchers(HttpMethod.POST, "/claims/*/documents").hasRole("CLAIMANT")
                         .requestMatchers(HttpMethod.POST, "/claims/*/info-requests/*/response").hasRole("CLAIMANT")
+                        .requestMatchers(HttpMethod.GET,
+                                "/officer/queue", "/officer/me/workload", "/officer/claims/*").hasRole("OFFICER")
+                        .requestMatchers(HttpMethod.POST,
+                                "/claims/*/assign", "/claims/*/info-requests", "/claims/*/assessment",
+                                "/claims/*/decision", "/claims/*/settle").hasRole("OFFICER")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtConverter)))
                 .exceptionHandling(errors -> errors
